@@ -44,8 +44,11 @@ router.get('/:id', (req, res) => {
   const match = db.getMatch(req.params.id);
   if (!match) return res.status(404).send('Match not found');
 
-  const isClosed = match.status === 'closed';
-  const players  = db.getActivePlayers();
+  const isClosed  = match.status === 'closed';
+  // Show only players belonging to this match's category (or all if no category set)
+  const players = match.category_id
+    ? db.getActivePlayersByCat(match.category_id)
+    : db.getActivePlayers();
   const stats    = db.getStatsByMatch(match.id);
   const statMap  = buildStatMap(stats, players);
   const lastStat = db.getLastStat(match.id);

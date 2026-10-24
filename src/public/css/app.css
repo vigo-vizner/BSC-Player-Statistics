@@ -301,6 +301,44 @@ body.login-page {
 /* ── Empty state ─────────────────────────────────────────────────────────── */
 .empty-state { color: var(--muted); padding: 2rem; text-align: center; font-size: .95rem; }
 
+/* ── Category tabs (dashboard filter) ───────────────────────────────────── */
+.cat-tabs {
+  display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1.25rem;
+}
+.cat-tab {
+  padding: .3rem .85rem; border-radius: 999px; font-size: .85rem; font-weight: 600;
+  font-family: 'Barlow Condensed', system-ui, sans-serif; letter-spacing: .02em;
+  border: 1px solid var(--border); background: var(--surface); color: var(--muted);
+  text-decoration: none; transition: background .15s, color .15s, border-color .15s;
+  white-space: nowrap;
+}
+.cat-tab:hover { background: #e8ebf0; color: var(--text); text-decoration: none; }
+.cat-tab.active {
+  background: var(--bsc-blue); border-color: var(--bsc-blue); color: #fff;
+}
+
+/* ── Category / player group labels in admin ─────────────────────────────── */
+.cat-group-label, .player-group-label {
+  font-family: 'Barlow Condensed', system-ui, sans-serif;
+  font-size: 1rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--bsc-yellow); background: var(--bsc-blue);
+  padding: .35rem .85rem; margin-bottom: 0;
+}
+.cat-group { margin-bottom: 1.5rem; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.cat-group .season-block { border-radius: 0; border-left: none; border-right: none; border-top: none; }
+.player-group { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: .75rem; }
+
+/* ── Blue badge for category label on dashboard ──────────────────────────── */
+.badge-blue { background: #dbeafe; color: #1d4ed8; }
+
+/* ── select in modal forms ───────────────────────────────────────────────── */
+select {
+  padding: .5rem .75rem; border: 1px solid var(--border); border-radius: var(--radius);
+  font-size: .95rem; font-family: inherit; background: var(--surface);
+  transition: border-color .15s; width: 100%;
+}
+select:focus { outline: none; border-color: var(--bsc-yellow); box-shadow: 0 0 0 3px rgba(245,166,35,.2); }
+
 /* ── Mobile tweaks ───────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
   /* Header: logo row on top, nav+controls below */

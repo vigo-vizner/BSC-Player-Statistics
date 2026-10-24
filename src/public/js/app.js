@@ -163,38 +163,54 @@ function closeAllModals() {
   document.getElementById('modal-overlay')?.classList.add('hidden');
 }
 
+function openAddCategory() {
+  document.getElementById('modal-category-title').textContent = document.getElementById('modal-category-title').closest('.modal-box').dataset.addLabel || 'Add Category';
+  document.getElementById('form-category').action = '/admin/category/add';
+  document.getElementById('category-id').value = '';
+  document.getElementById('category-name').value = '';
+  document.getElementById('category-sort').value = '0';
+  openModal('modal-category');
+}
+function openEditCategory(id, name, sort) {
+  document.getElementById('form-category').action = `/admin/category/${id}/edit`;
+  document.getElementById('category-id').value = id;
+  document.getElementById('category-name').value = name;
+  document.getElementById('category-sort').value = sort;
+  openModal('modal-category');
+}
+
 function openAddPlayer() {
-  document.getElementById('modal-player-title').textContent = 'Add Player';
   document.getElementById('form-player').action = '/admin/player/add';
   document.getElementById('player-id').value = '';
   document.getElementById('player-name').value = '';
   document.getElementById('player-number').value = '';
+  document.getElementById('player-category').value = '';
   document.getElementById('player-active-wrap').style.display = 'none';
   openModal('modal-player');
 }
-function openEditPlayer(id, name, number, active) {
-  document.getElementById('modal-player-title').textContent = 'Edit Player';
+function openEditPlayer(id, name, number, active, categoryId) {
   document.getElementById('form-player').action = `/admin/player/${id}/edit`;
   document.getElementById('player-id').value = id;
   document.getElementById('player-name').value = name;
   document.getElementById('player-number').value = number;
+  document.getElementById('player-category').value = categoryId || '';
   document.getElementById('player-active').checked = !!active;
   document.getElementById('player-active-wrap').style.display = 'flex';
   openModal('modal-player');
 }
 
 function openAddSeason() {
-  document.getElementById('modal-season-title').textContent = 'Add Season';
   document.getElementById('form-season').action = '/admin/season/add';
   document.getElementById('season-id').value = '';
   document.getElementById('season-name').value = '';
+  document.getElementById('season-category').value = '';
   openModal('modal-season');
 }
-function openEditSeason(id, name) {
-  document.getElementById('modal-season-title').textContent = 'Edit Season';
+function openEditSeason(id, name, categoryId) {
   document.getElementById('form-season').action = `/admin/season/${id}/edit`;
   document.getElementById('season-id').value = id;
   document.getElementById('season-name').value = name;
+  document.getElementById('season-category').value = categoryId || '';
   openModal('modal-season');
 }
 

@@ -3,13 +3,41 @@ const router   = express.Router();
 const db       = require('../db');
 const { layout } = require('../views/layout');
 
-router.get('/', (req, res) => {
-  const t       = req.t;
-  const lang    = req.lang;
-  const seasons = db.getSeasons();
+function esc(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
-  const seasonsHtml = seasons.map(s => {
+router.get('/', (req, res) => {
+  const t          = req.t;
+  const lang       = req.lang;
+  const categories = db.getCategories();
+  const seasons    = db.getSeasons();
+
+  // Active category filter from query param — default 'all'
+  const activeCat = req.query.cat || 'all';
+
+  // Build category tab bar
+  const tabs = [
+    { key: 'all', label: t('all_categories') },
+    ...categories.map(c => ({ key: String(c.id), label: esc(c.name) })),
+    { key: 'none', label: t('uncategorized') },
+  ].map(tab => {
+    const isActive = activeCat === tab.key;
+    return `<a href="/dashboard?cat=${tab.key}" class="cat-tab${isActive ? ' active' : ''}">${tab.label}</a>`;
+  }).join('');
+
+  // Filter seasons by selected tab
+  const filteredSeasons = seasons.filter(s => {
+    if (activeCat === 'all')  return true;
+    if (activeCat === 'none') return !s.category_id;
+    return String(s.category_id) === activeCat;
+  });
+
+  const seasonsHtml = filteredSeasons.map(s => {
     const matches = db.getMatchesBySeason(s.id);
+    const catLabel = s.category_name
+      ? `<span class="badge badge-blue">${esc(s.category_name)}</span>`
+      : '';
     const matchRows = matches.map(m => {
       const isClosed = m.status === 'closed';
       const statusBadge = isClosed
@@ -34,7 +62,10 @@ router.get('/', (req, res) => {
     return `
     <div class="season-block">
       <div class="season-header">
-        <h2>${esc(s.name)}</h2>
+        <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
+          <h2>${esc(s.name)}</h2>
+          ${catLabel}
+        </div>
         <a href="/season/${s.id}/summary" class="btn btn-sm btn-outline">${t('season_summary')}</a>
       </div>
       <div class="table-wrap">
@@ -50,15 +81,12 @@ router.get('/', (req, res) => {
     <div class="page-header">
       <h1>${t('dashboard')}</h1>
     </div>
-    ${seasons.length === 0
-      ? `<p class="empty-state">${t('no_seasons')} <a href="/admin">${t('nav_admin')}</a></p>`
+    <div class="cat-tabs">${tabs}</div>
+    ${filteredSeasons.length === 0
+      ? `<p class="empty-state">${t('no_seasons')}</p>`
       : seasonsHtml}`;
 
   res.send(layout(t('dashboard'), body, { activePage: 'dashboard', lang, t }));
 });
-
-function esc(str) {
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
 
 module.exports = router;

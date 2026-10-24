@@ -36,6 +36,20 @@ const translations = {
     season_summary:       'Season Summary',
     no_matches:           'No matches yet',
 
+    // Admin — Categories
+    categories:           'Categories',
+    add_category:         '+ Category',
+    add_category_title:   'Add Category',
+    edit_category_title:  'Edit Category',
+    category:             'Category',
+    category_name:        'Category Name',
+    sort_order:           'Sort Order',
+    sort_order_hint:      '(lower = first)',
+    no_categories:        'No categories yet.',
+    confirm_delete_cat:   'Delete this category? Players and seasons will become uncategorized.',
+    uncategorized:        'Uncategorized',
+    all_categories:       'All',
+
     // Admin
     admin:                'Admin',
     players:              'Players',
@@ -137,6 +151,20 @@ const translations = {
     summary:              'Súhrn',
     season_summary:       'Súhrn sezóny',
     no_matches:           'Zatiaľ žiadne zápasy',
+
+    // Admin — Categories
+    categories:           'Kategórie',
+    add_category:         '+ Kategória',
+    add_category_title:   'Pridať kategóriu',
+    edit_category_title:  'Upraviť kategóriu',
+    category:             'Kategória',
+    category_name:        'Názov kategórie',
+    sort_order:           'Poradie',
+    sort_order_hint:      '(nižšie = prvé)',
+    no_categories:        'Zatiaľ žiadne kategórie.',
+    confirm_delete_cat:   'Vymazať kategóriu? Hráči a sezóny sa stanú nekategorizovanými.',
+    uncategorized:        'Bez kategórie',
+    all_categories:       'Všetky',
 
     // Admin
     admin:                'Admin',
