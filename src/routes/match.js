@@ -238,13 +238,8 @@ router.post('/:id/stat/remove', (req, res) => {
   if (!match) return res.status(404).json({ error: 'match not found' });
   if (match.status === 'closed') return res.status(403).json({ error: 'match is closed' });
 
-  // Delete the most recent occurrence of this stat for this player
-  const row = db.prepare(
-    'SELECT id FROM stats WHERE match_id=? AND player_id=? AND stat_type=? ORDER BY id DESC LIMIT 1'
-  ).get(match.id, player_id, stat_type);
-  if (!row) return res.json({ ok: false, message: 'Nothing to remove' });
-
-  db.deleteStat(row.id);
+  const removed = db.deleteLastStatOfType(match.id, player_id, stat_type);
+  if (!removed) return res.json({ ok: false, message: 'Nothing to remove' });
 
   const stats   = db.getStatsByMatch(match.id);
   const players = match.category_id ? db.getActivePlayersByCat(match.category_id) : db.getActivePlayers();

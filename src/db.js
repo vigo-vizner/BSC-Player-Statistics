@@ -169,6 +169,12 @@ const reopenMatch  = (id) => db.prepare("UPDATE matches SET status='open' WHERE 
 const insertStat          = (matchId, playerId, statType) => db.prepare('INSERT INTO stats (match_id,player_id,stat_type) VALUES (?,?,?)').run(matchId, playerId, statType);
 const getLastStat         = (matchId) => db.prepare('SELECT * FROM stats WHERE match_id=? ORDER BY id DESC LIMIT 1').get(matchId);
 const deleteStat          = (id) => db.prepare('DELETE FROM stats WHERE id=?').run(id);
+const deleteLastStatOfType = (matchId, playerId, statType) => {
+  const row = db.prepare('SELECT id FROM stats WHERE match_id=? AND player_id=? AND stat_type=? ORDER BY id DESC LIMIT 1').get(matchId, playerId, statType);
+  if (!row) return false;
+  db.prepare('DELETE FROM stats WHERE id=?').run(row.id);
+  return true;
+};
 const getStatsByMatch     = (matchId) => db.prepare('SELECT * FROM stats WHERE match_id=? ORDER BY id').all(matchId);
 const getStatsBySeasonRaw = (seasonId) => db.prepare('SELECT s.* FROM stats s JOIN matches m ON m.id=s.match_id WHERE m.season_id=?').all(seasonId);
 
@@ -195,6 +201,6 @@ module.exports = {
   getSeasons, getSeasonsByCat, insertSeason, updateSeason, deleteSeason,
   getMatchesBySeason, getMatch, insertMatch, updateMatch, deleteMatch,
   closeMatch, reopenMatch,
-  insertStat, getLastStat, deleteStat, getStatsByMatch, getStatsBySeasonRaw,
+  insertStat, getLastStat, deleteStat, deleteLastStatOfType, getStatsByMatch, getStatsBySeasonRaw,
   getSeasonPtsByPlayer,
 };
