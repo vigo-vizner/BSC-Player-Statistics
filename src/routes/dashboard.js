@@ -45,8 +45,14 @@ router.get('/', (req, res) => {
         : `<span class="badge badge-green">${t('open')}</span>`;
       const typeBadge = `<span class="badge badge-type badge-type-${m.match_type || 'league'}">${t('match_type_' + (m.match_type || 'league'))}</span>`;
       const tournLabel = (m.match_type === 'tournament' && m.tournament_name) ? ` <span class="match-tourn-name">${esc(m.tournament_name)}</span>` : '';
-      const scoreLabel = (m.score_bsc || m.score_opponent)
-        ? `<span class="match-score">${m.score_bsc || 0}–${m.score_opponent || 0}</span>`
+      const scoreBsc = m.score_bsc || 0;
+      const scoreOpp = m.score_opponent || 0;
+      const scoreClass = !isClosed || (!scoreBsc && !scoreOpp) ? 'match-score'
+        : scoreBsc > scoreOpp ? 'match-score match-score--win'
+        : scoreBsc < scoreOpp ? 'match-score match-score--loss'
+        : 'match-score match-score--draw';
+      const scoreLabel = (scoreBsc || scoreOpp)
+        ? `<span class="${scoreClass}">${scoreBsc}–${scoreOpp}</span>`
         : '';
       const liveBtn = isClosed
         ? `<a href="/match/${m.id}" class="btn btn-sm btn-outline">${t('view')}</a>`

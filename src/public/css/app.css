@@ -257,6 +257,9 @@ body.login-page {
   background: #eef2ff; border-radius: 4px; padding: .05rem .4rem;
   white-space: nowrap;
 }
+.match-score--win  { background: #dcfce7; color: #15803d; }
+.match-score--loss { background: #fee2e2; color: #b91c1c; }
+.match-score--draw { background: #f1f5f9; color: #475569; }
 .undo-bar {
   display: flex; align-items: center; gap: .6rem;
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
