@@ -53,6 +53,10 @@ router.get('/:id', (req, res) => {
   const statMap  = buildStatMap(stats, players);
   const lastStat = db.getLastStat(match.id);
 
+  // Season pts per player (all matches in the season, including this one live)
+  const seasonId     = match.season_id;
+  const seasonPtsMap = db.getSeasonPtsByPlayer(seasonId);
+
   const headerCols = STAT_TYPES.map(st => `<th class="stat-col">${t(STAT_KEYS[st])}</th>`).join('');
 
   const playerRows = players.map(p => {
@@ -77,13 +81,15 @@ router.get('/:id', (req, res) => {
       </button>`;
     }).join('');
 
-    const pts = totalPoints(statMap, p.id);
+    const pts       = totalPoints(statMap, p.id);
+    const seasonPts = seasonPtsMap[p.id] || 0;
     return `
     <tr id="player-row-${p.id}" class="player-main-row" data-player-id="${p.id}">
       <td class="player-cell">
         <button class="pin-btn" data-player-id="${p.id}" title="Pin player" aria-label="Pin ${esc(p.name)}">☆</button>
         <span class="player-name-expand" data-player-id="${p.id}">
           <span class="p-num">#${esc(p.number)}</span> ${esc(p.name)}
+          <span class="season-pts-badge" title="${t('season_pts_title')}">${seasonPts} ${t('season_pts_label')}</span>
         </span>
       </td>
       <td class="pts-cell" id="pts-${p.id}">${pts}</td>

@@ -96,6 +96,8 @@ const translations = {
     reopen_in_admin:      'Reopen in Admin',
     player:               'Player',
     pts:                  'PTS',
+    season_pts_label:     'sp',
+    season_pts_title:     'Season total points',
 
     // Summary
     summary_title:        'Summary',
@@ -213,6 +215,8 @@ const translations = {
     reopen_in_admin:      'Otvoriť v Admine',
     player:               'Hráč',
     pts:                  'Body',
+    season_pts_label:     'sb',
+    season_pts_title:     'Body za sezónu celkovo',
 
     // Summary
     summary_title:        'Súhrn',

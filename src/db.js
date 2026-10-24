@@ -172,6 +172,22 @@ const deleteStat          = (id) => db.prepare('DELETE FROM stats WHERE id=?').r
 const getStatsByMatch     = (matchId) => db.prepare('SELECT * FROM stats WHERE match_id=? ORDER BY id').all(matchId);
 const getStatsBySeasonRaw = (seasonId) => db.prepare('SELECT s.* FROM stats s JOIN matches m ON m.id=s.match_id WHERE m.season_id=?').all(seasonId);
 
+// Returns { player_id -> total_points } for all closed+open matches in a season
+// Points = 1pt*1 + 2pt*2 + 3pt*3
+const getSeasonPtsByPlayer = (seasonId) => {
+  const rows = db.prepare(`
+    SELECT s.player_id,
+      SUM(CASE s.stat_type WHEN '1pt' THEN 1 WHEN '2pt' THEN 2 WHEN '3pt' THEN 3 ELSE 0 END) AS pts
+    FROM stats s
+    JOIN matches m ON m.id = s.match_id
+    WHERE m.season_id = ?
+    GROUP BY s.player_id
+  `).all(seasonId);
+  const map = {};
+  rows.forEach(r => { map[r.player_id] = r.pts || 0; });
+  return map;
+};
+
 module.exports = {
   getCategories, getCategory, insertCategory, updateCategory, deleteCategory,
   getPlayerCategoryIds, setPlayerCategories,
@@ -180,4 +196,5 @@ module.exports = {
   getMatchesBySeason, getMatch, insertMatch, updateMatch, deleteMatch,
   closeMatch, reopenMatch,
   insertStat, getLastStat, deleteStat, getStatsByMatch, getStatsBySeasonRaw,
+  getSeasonPtsByPlayer,
 };

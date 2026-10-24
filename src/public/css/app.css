@@ -259,9 +259,18 @@ body.login-page {
 .player-main-row.pinned-row:hover > td { background: #fff5b8; }
 
 /* ── Player name — tappable expand trigger on mobile ─────────────────────── */
-.player-name-expand { cursor: pointer; }
+.player-name-expand { cursor: pointer; display: inline-flex; align-items: baseline; gap: .35rem; }
 .player-main-row.expanded > .player-cell { color: var(--bsc-blue); font-weight: 600; }
 .player-main-row.expanded > td { background: #eef2ff !important; }
+
+/* ── Season points badge ─────────────────────────────────────────────────── */
+.season-pts-badge {
+  font-family: 'Barlow Condensed', system-ui, sans-serif;
+  font-size: .72rem; font-weight: 700; letter-spacing: .03em;
+  color: var(--bsc-blue); background: #e8edff;
+  border-radius: 999px; padding: .05rem .4rem;
+  white-space: nowrap; opacity: .85;
+}
 
 .stat-btn {
   width: 100%; min-width: 36px; height: 36px; border: none; border-radius: 6px;
