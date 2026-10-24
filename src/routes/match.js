@@ -11,7 +11,6 @@ function esc(str) {
 }
 
 function buildStatMap(stats, players) {
-  // { playerId: { statType: count } }
   const map = {};
   players.forEach(p => { map[p.id] = {}; STAT_TYPES.forEach(t => { map[p.id][t] = 0; }); });
   stats.forEach(s => { if (map[s.player_id]) map[s.player_id][s.stat_type]++; });
@@ -28,17 +27,22 @@ router.get('/:id', (req, res) => {
   const match = db.getMatch(req.params.id);
   if (!match) return res.status(404).send('Match not found');
 
-  const players = db.getActivePlayers();
-  const stats   = db.getStatsByMatch(match.id);
-  const statMap = buildStatMap(stats, players);
+  const isClosed = match.status === 'closed';
+  const players  = db.getActivePlayers();
+  const stats    = db.getStatsByMatch(match.id);
+  const statMap  = buildStatMap(stats, players);
   const lastStat = db.getLastStat(match.id);
 
   const headerCols = STAT_TYPES.map(t => `<th class="stat-col">${STAT_LABELS[t]}</th>`).join('');
+
   const playerRows = players.map(p => {
     const statCells = STAT_TYPES.map(t => {
       const count = statMap[p.id][t] || 0;
+      if (isClosed) {
+        return `<td class="stat-cell"><span class="stat-val ${count > 0 ? 'has-val' : ''}">${count || '—'}</span></td>`;
+      }
       return `<td class="stat-cell">
-        <button class="stat-btn" data-match="${match.id}" data-player="${p.id}" data-stat="${t}">
+        <button class="stat-btn${count > 0 ? ' has-val' : ''}" data-match="${match.id}" data-player="${p.id}" data-stat="${t}">
           ${count > 0 ? count : '+'}
         </button>
       </td>`;
@@ -55,17 +59,30 @@ router.get('/:id', (req, res) => {
     ? `Last: <strong>${esc(players.find(p=>p.id===lastStat.player_id)?.name||'?')}</strong> — ${STAT_LABELS[lastStat.stat_type]}`
     : 'No stats recorded yet';
 
+  const closedBanner = isClosed ? `
+    <div class="closed-banner">
+      🔒 This match is closed — stats are locked.
+      <a href="/admin" class="btn btn-sm">Reopen in Admin</a>
+    </div>` : '';
+
+  const liveControls = isClosed ? '' : `
+    <div class="undo-bar" id="undo-bar">
+      <span id="undo-info">${undoInfo}</span>
+      <button class="btn btn-warning" id="undo-btn" ${!lastStat ? 'disabled' : ''} onclick="undoLast(${match.id})">↩ Undo</button>
+    </div>
+    <form method="POST" action="/match/${match.id}/close" onsubmit="return confirm('Close this match? Stats will be locked.')">
+      <button class="btn btn-danger">🔒 Close Match</button>
+    </form>`;
+
   const body = `
+  ${closedBanner}
   <div class="match-header">
     <div>
       <h1>vs ${esc(match.opponent)}</h1>
       <p class="match-meta">${match.match_date}${match.location ? ' · '+esc(match.location) : ''} · ${esc(match.season_name)}</p>
     </div>
     <div class="match-actions">
-      <div class="undo-bar" id="undo-bar">
-        <span id="undo-info">${undoInfo}</span>
-        <button class="btn btn-warning" id="undo-btn" ${!lastStat ? 'disabled' : ''} onclick="undoLast(${match.id})">↩ Undo</button>
-      </div>
+      ${liveControls}
       <a href="/match/${match.id}/summary" class="btn btn-outline">Summary</a>
     </div>
   </div>
@@ -95,10 +112,10 @@ router.post('/:id/stat', (req, res) => {
 
   const match = db.getMatch(req.params.id);
   if (!match) return res.status(404).json({ error: 'match not found' });
+  if (match.status === 'closed') return res.status(403).json({ error: 'match is closed' });
 
   db.insertStat(match.id, player_id, stat_type);
 
-  // Return updated counts for this player
   const stats   = db.getStatsByMatch(match.id);
   const players = db.getActivePlayers();
   const statMap = buildStatMap(stats, players);
@@ -120,6 +137,7 @@ router.post('/:id/stat', (req, res) => {
 router.post('/:id/undo', (req, res) => {
   const match = db.getMatch(req.params.id);
   if (!match) return res.status(404).json({ error: 'match not found' });
+  if (match.status === 'closed') return res.status(403).json({ error: 'match is closed' });
 
   const last = db.getLastStat(match.id);
   if (!last) return res.json({ ok: false, message: 'Nothing to undo' });
@@ -144,6 +162,22 @@ router.post('/:id/undo', (req, res) => {
       stat_label: STAT_LABELS[newLast.stat_type],
     } : null,
   });
+});
+
+// ── POST /match/:id/close ─────────────────────────────────────────────────────
+router.post('/:id/close', (req, res) => {
+  const match = db.getMatch(req.params.id);
+  if (!match) return res.status(404).send('Match not found');
+  db.closeMatch(match.id);
+  res.redirect(`/match/${match.id}`);
+});
+
+// ── POST /match/:id/reopen ────────────────────────────────────────────────────
+router.post('/:id/reopen', (req, res) => {
+  const match = db.getMatch(req.params.id);
+  if (!match) return res.status(404).send('Match not found');
+  db.reopenMatch(match.id);
+  res.redirect(`/match/${match.id}`);
 });
 
 module.exports = router;

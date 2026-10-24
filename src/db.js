@@ -31,6 +31,7 @@ db.exec(`
     opponent   TEXT    NOT NULL,
     match_date TEXT    NOT NULL,
     location   TEXT    NOT NULL DEFAULT '',
+    status     TEXT    NOT NULL DEFAULT 'open',
     created_at TEXT    NOT NULL DEFAULT (datetime('now'))
   );
 
@@ -61,6 +62,8 @@ const getMatch           = (id) => db.prepare('SELECT m.*, s.name as season_name
 const insertMatch        = (seasonId, opponent, date, location) => db.prepare('INSERT INTO matches (season_id,opponent,match_date,location) VALUES (?,?,?,?)').run(seasonId, opponent, date, location);
 const updateMatch        = (id, opponent, date, location) => db.prepare('UPDATE matches SET opponent=?,match_date=?,location=? WHERE id=?').run(opponent, date, location, id);
 const deleteMatch        = (id) => db.prepare('DELETE FROM matches WHERE id=?').run(id);
+const closeMatch         = (id) => db.prepare("UPDATE matches SET status='closed' WHERE id=?").run(id);
+const reopenMatch        = (id) => db.prepare("UPDATE matches SET status='open' WHERE id=?").run(id);
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
 const insertStat      = (matchId, playerId, statType) => db.prepare('INSERT INTO stats (match_id,player_id,stat_type) VALUES (?,?,?)').run(matchId, playerId, statType);
@@ -70,9 +73,15 @@ const getStatsByMatch = (matchId) => db.prepare('SELECT * FROM stats WHERE match
 const getStatsBySeasonRaw = (seasonId) =>
   db.prepare(`SELECT s.* FROM stats s JOIN matches m ON m.id=s.match_id WHERE m.season_id=?`).all(seasonId);
 
+// Migration: add status column to existing databases that don't have it yet
+try {
+  db.prepare("ALTER TABLE matches ADD COLUMN status TEXT NOT NULL DEFAULT 'open'").run();
+} catch (_) { /* column already exists — ignore */ }
+
 module.exports = {
   getPlayers, getActivePlayers, insertPlayer, updatePlayer,
   getSeasons, insertSeason, updateSeason, deleteSeason,
   getMatchesBySeason, getMatch, insertMatch, updateMatch, deleteMatch,
+  closeMatch, reopenMatch,
   insertStat, getLastStat, deleteStat, getStatsByMatch, getStatsBySeasonRaw,
 };

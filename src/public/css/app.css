@@ -121,6 +121,21 @@ body.login-page { display: flex; align-items: center; justify-content: center; m
 .badge { display: inline-block; padding: .15rem .55rem; border-radius: 999px; font-size: .75rem; font-weight: 600; }
 .badge-green { background: #dcfce7; color: #15803d; }
 .badge-gray  { background: #f1f5f9; color: #64748b; }
+.badge-red   { background: #fee2e2; color: #b91c1c; }
+
+/* ── Closed match banner ─────────────────────────────────────────────────── */
+.closed-banner {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  gap: .5rem; background: #fff7ed; border: 1px solid #fed7aa; border-radius: var(--radius);
+  padding: .65rem 1rem; margin-bottom: .75rem; color: #92400e; font-size: .9rem; font-weight: 500;
+}
+
+/* ── Stat value (read-only closed state) ─────────────────────────────────── */
+.stat-val {
+  display: inline-block; min-width: 36px; height: 36px; line-height: 36px;
+  text-align: center; font-size: .85rem; color: var(--muted); border-radius: 6px;
+}
+.stat-val.has-val { color: var(--primary); font-weight: 700; }
 
 /* ── Match page ──────────────────────────────────────────────────────────── */
 .match-header {

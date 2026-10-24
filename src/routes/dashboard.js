@@ -7,16 +7,26 @@ router.get('/', (req, res) => {
   const seasons = db.getSeasons();
   const seasonsHtml = seasons.map(s => {
     const matches = db.getMatchesBySeason(s.id);
-    const matchRows = matches.map(m => `
+    const matchRows = matches.map(m => {
+      const isClosed = m.status === 'closed';
+      const statusBadge = isClosed
+        ? '<span class="badge badge-red">🔒 Closed</span>'
+        : '<span class="badge badge-green">Open</span>';
+      const liveBtn = isClosed
+        ? `<a href="/match/${m.id}" class="btn btn-sm btn-outline">View</a>`
+        : `<a href="/match/${m.id}" class="btn btn-sm">Live</a>`;
+      return `
       <tr>
         <td>${m.match_date}</td>
         <td>${escHtml(m.opponent)}</td>
         <td>${escHtml(m.location)}</td>
+        <td>${statusBadge}</td>
         <td class="td-actions">
-          <a href="/match/${m.id}" class="btn btn-sm">Live</a>
+          ${liveBtn}
           <a href="/match/${m.id}/summary" class="btn btn-sm btn-outline">Summary</a>
         </td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
 
     return `
     <div class="season-block">
@@ -25,8 +35,8 @@ router.get('/', (req, res) => {
         <a href="/season/${s.id}/summary" class="btn btn-sm btn-outline">Season Summary</a>
       </div>
       <table class="data-table">
-        <thead><tr><th>Date</th><th>Opponent</th><th>Location</th><th>Actions</th></tr></thead>
-        <tbody>${matchRows || '<tr><td colspan="4" class="empty">No matches yet</td></tr>'}</tbody>
+        <thead><tr><th>Date</th><th>Opponent</th><th>Location</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>${matchRows || '<tr><td colspan="5" class="empty">No matches yet</td></tr>'}</tbody>
       </table>
     </div>`;
   }).join('');

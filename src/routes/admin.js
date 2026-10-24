@@ -29,8 +29,13 @@ router.get('/', (req, res) => {
         <td>${m.match_date}</td>
         <td>${esc(m.opponent)}</td>
         <td>${esc(m.location)}</td>
+        <td><span class="badge ${m.status === 'closed' ? 'badge-red' : 'badge-green'}">${m.status === 'closed' ? '🔒 Closed' : 'Open'}</span></td>
         <td>
           <button class="btn btn-sm" onclick="openEditMatch(${m.id},'${esc(m.opponent)}','${m.match_date}','${esc(m.location)}')">Edit</button>
+          ${m.status === 'closed'
+            ? `<form method="POST" action="/match/${m.id}/reopen" style="display:inline"><button class="btn btn-sm btn-primary">🔓 Reopen</button></form>`
+            : `<form method="POST" action="/match/${m.id}/close" style="display:inline" onsubmit="return confirm('Close this match?')"><button class="btn btn-sm btn-warning">🔒 Close</button></form>`
+          }
           <form method="POST" action="/admin/match/${m.id}/delete" style="display:inline" onsubmit="return confirm('Delete this match and all its stats?')">
             <button class="btn btn-sm btn-danger">Delete</button>
           </form>
@@ -50,8 +55,8 @@ router.get('/', (req, res) => {
         </div>
       </div>
       <table class="data-table">
-        <thead><tr><th>Date</th><th>Opponent</th><th>Location</th><th>Actions</th></tr></thead>
-        <tbody>${matchRows || '<tr><td colspan="4" class="empty">No matches</td></tr>'}</tbody>
+        <thead><tr><th>Date</th><th>Opponent</th><th>Location</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>${matchRows || '<tr><td colspan="5" class="empty">No matches</td></tr>'}</tbody>
       </table>
     </div>`;
   }).join('');

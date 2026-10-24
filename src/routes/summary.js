@@ -47,13 +47,17 @@ router.get('/match/:id/summary', (req, res) => {
   const statMap = buildStatMap(stats, players);
   const table   = buildSummaryTable(statMap, players);
 
+  const closedBadge = match.status === 'closed'
+    ? '<span class="badge badge-red">🔒 Closed</span>'
+    : '<span class="badge badge-green">🟢 Open</span>';
+
   const body = `
   <div class="page-header">
-    <h1>Summary: vs ${esc(match.opponent)}</h1>
+    <h1>Summary: vs ${esc(match.opponent)} ${closedBadge}</h1>
     <p class="match-meta">${match.match_date}${match.location ? ' · '+esc(match.location) : ''} · ${esc(match.season_name)}</p>
   </div>
   <div class="summary-actions">
-    <a href="/match/${match.id}" class="btn">← Back to Live</a>
+    <a href="/match/${match.id}" class="btn">← Back to Match</a>
     <a href="/match/${match.id}/export.csv" class="btn btn-outline">Export CSV</a>
   </div>
   ${table}`;
