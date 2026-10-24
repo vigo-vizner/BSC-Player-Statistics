@@ -215,8 +215,8 @@ document.addEventListener('click', async (e) => {
     showToast('Error — please retry', true);
     console.error(err);
   } finally {
-    // Re-enable unless count is now 0 (handled by updateStatButtons)
-    if (isPlus) btn.disabled = false;
+    // Always re-enable — updateStatButtons handles disabling minus when count hits 0
+    btn.disabled = false;
   }
 });
 
