@@ -2,13 +2,38 @@ const express    = require('express');
 const router     = express.Router();
 const { getT }   = require('../i18n');
 
+const DISCLAIMER = {
+  en: {
+    title: 'Welcome to BSC Bratislava Player Statistics',
+    body: `
+      <p>This app is an unofficial hobby project created by a parent, for parents. It is not affiliated with BSC Bratislava club or the Slovak Basketball Association in any way.</p>
+      <p>The stats you see here are only as accurate as what has been entered by the people using the app. Anyone with access can add, edit or remove data — so please be fair and accurate when recording or correcting stats.</p>
+      <p>Player data stored in the app is limited to first name and jersey number. No other personal information is collected. The app is password-protected but is a shared tool — treat it accordingly.</p>
+      <p>This app runs on hobby-grade hosting and data is not guaranteed to be permanent. It should not be used as an official record.</p>
+      <p>Have fun and enjoy the game! 🏀</p>`,
+    accept: 'I understand — take me to the app',
+  },
+  sk: {
+    title: 'Vitajte v BSC Bratislava štatistikách hráčov',
+    body: `
+      <p>Táto aplikácia je neoficiálny hobby projekt vytvorený rodičom pre rodičov. Nie je nijako prepojená s klubom BSC Bratislava ani so Slovenskou basketbalovou asociáciou.</p>
+      <p>Štatistiky sú také presné, ako ich zadajú ľudia, ktorí aplikáciu používajú. Každý s prístupom môže dáta pridávať, upravovať alebo odstraňovať — preto prosíme, buďte féroví a zadávajte štatistiky čestne.</p>
+      <p>O hráčoch sú uložené iba meno a číslo dresu. Žiadne iné osobné údaje sa nezbierajú. Aplikácia je chránená heslom, no ide o zdieľaný nástroj — správajte sa k nej zodpovedne.</p>
+      <p>Aplikácia beží na hobby hostingu a trvalosť dát nie je zaručená. Nemala by sa používať ako oficiálny záznam.</p>
+      <p>Užite si hru! 🏀</p>`,
+    accept: 'Rozumiem — prejsť do aplikácie',
+  },
+};
+
 // GET /login
 router.get('/', (req, res) => {
   if (req.session && req.session.authenticated) return res.redirect('/dashboard');
-  const lang = req.session.lang || 'en';
-  const t    = getT(lang);
+  const lang      = req.session.lang || 'sk';   // default Slovak
+  const t         = getT(lang);
   const otherLang = lang === 'en' ? 'sk' : 'en';
-  const err  = req.query.err ? `<p class="error">${t('invalid_password')}</p>` : '';
+  const err       = req.query.err ? `<p class="error">${t('invalid_password')}</p>` : '';
+  const d         = DISCLAIMER[lang] || DISCLAIMER.sk;
+
   res.send(`<!DOCTYPE html>
 <html lang="${lang}">
 <head>
@@ -27,8 +52,28 @@ router.get('/', (req, res) => {
       <input id="password" type="password" name="password" autofocus autocomplete="current-password" required>
       <button type="submit" class="btn btn-primary">${t('sign_in')}</button>
     </form>
-    <a href="/lang/${otherLang}" class="lang-toggle" style="margin-top:.5rem;align-self:center;">${otherLang.toUpperCase()}</a>
+    <a href="/lang/${otherLang}?next=/login" class="lang-toggle lang-toggle--login">${otherLang.toUpperCase()}</a>
   </div>
+
+  <!-- ── Disclaimer modal ── -->
+  <div class="disclaimer-overlay hidden" id="disclaimer-overlay">
+    <div class="disclaimer-box">
+      <h2>${d.title}</h2>
+      <div class="disclaimer-body">${d.body}</div>
+      <button class="disclaimer-accept" onclick="acceptDisclaimer()">${d.accept}</button>
+    </div>
+  </div>
+
+  <script>
+    // Show once per browser session — re-shows on every new tab/session
+    if (!sessionStorage.getItem('bsc_disclaimer_accepted')) {
+      document.getElementById('disclaimer-overlay').classList.remove('hidden');
+    }
+    function acceptDisclaimer() {
+      sessionStorage.setItem('bsc_disclaimer_accepted', '1');
+      document.getElementById('disclaimer-overlay').classList.add('hidden');
+    }
+  </script>
 </body>
 </html>`);
 });

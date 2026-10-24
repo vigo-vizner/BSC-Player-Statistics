@@ -39,7 +39,7 @@ app.use((req, res, next) => {
 app.get('/lang/:code', (req, res) => {
   const code = req.params.code;
   if (['en', 'sk'].includes(code)) req.session.lang = code;
-  const back = req.headers.referer || '/dashboard';
+  const back = req.query.next || req.headers.referer || '/dashboard';
   res.redirect(back);
 });
 
