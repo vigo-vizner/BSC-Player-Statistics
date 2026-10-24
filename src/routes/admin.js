@@ -26,25 +26,26 @@ function catOptionsMulti(categories, selectedIds, t) {
 router.get('/', (req, res) => {
   const t          = req.t;
   const lang       = req.lang;
+  const tab        = ['players', 'seasons', 'categories'].includes(req.query.tab) ? req.query.tab : 'players';
   const categories = db.getCategories();
   const players    = db.getPlayers();
   const seasons    = db.getSeasons();
 
-  // ── Categories section ────────────────────────────────────────────────────
+  // ── Categories panel ──────────────────────────────────────────────────────
   const catRows = categories.map(c => `
     <tr>
       <td>${esc(c.name)}</td>
       <td>${c.sort_order}</td>
       <td>
         <button class="btn btn-sm" onclick="openEditCategory(${c.id},'${esc(c.name)}',${c.sort_order})">${t('edit')}</button>
-        <form method="POST" action="/admin/category/${c.id}/delete" style="display:inline"
+        <form method="POST" action="/admin/category/${c.id}/delete?tab=categories" style="display:inline"
               onsubmit="return confirm('${t('confirm_delete_cat')}')">
           <button class="btn btn-sm btn-danger">${t('delete')}</button>
         </form>
       </td>
     </tr>`).join('');
 
-  // ── Players section ───────────────────────────────────────────────────────
+  // ── Players panel ─────────────────────────────────────────────────────────
   // Group players by each of their categories (a player may appear in multiple groups)
   const catMap = {};
   categories.forEach(c => { catMap[c.id] = []; });
@@ -87,7 +88,7 @@ router.get('/', (req, res) => {
     </div>`;
   }).join('') || `<p class="empty-state">${t('no_data')}</p>`;
 
-  // ── Seasons & Matches section ─────────────────────────────────────────────
+  // ── Seasons & Matches panel ───────────────────────────────────────────────
   const seasonGroups = [
     ...categories.map(c => ({ label: esc(c.name), catId: c.id })),
     { label: t('uncategorized'), catId: null },
@@ -108,10 +109,10 @@ router.get('/', (req, res) => {
           <td>
             <button class="btn btn-sm" onclick="openEditMatch(${m.id},'${esc(m.opponent)}','${m.match_date}','${esc(m.location)}')">${t('edit')}</button>
             ${m.status === 'closed'
-              ? `<form method="POST" action="/match/${m.id}/reopen" style="display:inline"><button class="btn btn-sm btn-primary">${t('reopen')}</button></form>`
-              : `<form method="POST" action="/match/${m.id}/close" style="display:inline" onsubmit="return confirm('${t('confirm_close_match')}')"><button class="btn btn-sm btn-warning">${t('close_match')}</button></form>`
+              ? `<form method="POST" action="/match/${m.id}/reopen?tab=seasons" style="display:inline"><button class="btn btn-sm btn-primary">${t('reopen')}</button></form>`
+              : `<form method="POST" action="/match/${m.id}/close?tab=seasons" style="display:inline" onsubmit="return confirm('${t('confirm_close_match')}')"><button class="btn btn-sm btn-warning">${t('close_match')}</button></form>`
             }
-            <form method="POST" action="/admin/match/${m.id}/delete" style="display:inline" onsubmit="return confirm('${t('confirm_delete_match')}')">
+            <form method="POST" action="/admin/match/${m.id}/delete?tab=seasons" style="display:inline" onsubmit="return confirm('${t('confirm_delete_match')}')">
               <button class="btn btn-sm btn-danger">${t('delete')}</button>
             </form>
           </td>
@@ -123,7 +124,7 @@ router.get('/', (req, res) => {
           <h3>${esc(s.name)}</h3>
           <div class="btn-group">
             <button class="btn btn-sm" onclick="openEditSeason(${s.id},'${esc(s.name)}',${s.category_id || 'null'})">${t('edit_season')}</button>
-            <form method="POST" action="/admin/season/${s.id}/delete" style="display:inline" onsubmit="return confirm('${t('confirm_delete_season')}')">
+            <form method="POST" action="/admin/season/${s.id}/delete?tab=seasons" style="display:inline" onsubmit="return confirm('${t('confirm_delete_season')}')">
               <button class="btn btn-sm btn-danger">${t('delete_season')}</button>
             </form>
             <button class="btn btn-sm btn-primary" onclick="openAddMatch(${s.id})">${t('add_match')}</button>
@@ -145,10 +146,36 @@ router.get('/', (req, res) => {
   }).join('');
 
   const body = `
+  <script>window._adminTab = '${tab}';</script>
   <div class="page-header"><h1>${t('admin')}</h1></div>
 
-  <!-- ── Categories ── -->
-  <section class="admin-section">
+  <!-- ── Tab bar ── -->
+  <div class="admin-tabs" id="admin-tabs" data-active="${tab}">
+    <button class="admin-tab${tab === 'players'    ? ' active' : ''}" data-tab="players">${t('players')}</button>
+    <button class="admin-tab${tab === 'seasons'    ? ' active' : ''}" data-tab="seasons">${t('seasons_matches')}</button>
+    <button class="admin-tab${tab === 'categories' ? ' active' : ''}" data-tab="categories">${t('categories')}</button>
+  </div>
+
+  <!-- ── Players panel ── -->
+  <div class="admin-panel${tab === 'players' ? ' active' : ''}" id="panel-players">
+    <div class="section-header">
+      <h2>${t('players')}</h2>
+      <button class="btn btn-primary" onclick="openAddPlayer()">${t('add_player')}</button>
+    </div>
+    ${playerGroupHtml}
+  </div>
+
+  <!-- ── Seasons & Matches panel ── -->
+  <div class="admin-panel${tab === 'seasons' ? ' active' : ''}" id="panel-seasons">
+    <div class="section-header">
+      <h2>${t('seasons_matches')}</h2>
+      <button class="btn btn-primary" onclick="openAddSeason()">${t('add_season')}</button>
+    </div>
+    ${seasons.length === 0 ? `<p class="empty-state">${t('no_seasons_admin')}</p>` : seasonGroups}
+  </div>
+
+  <!-- ── Categories panel ── -->
+  <div class="admin-panel${tab === 'categories' ? ' active' : ''}" id="panel-categories">
     <div class="section-header">
       <h2>${t('categories')}</h2>
       <button class="btn btn-primary" onclick="openAddCategory()">${t('add_category')}</button>
@@ -159,25 +186,7 @@ router.get('/', (req, res) => {
       <tbody>${catRows || `<tr><td colspan="3" class="empty">${t('no_categories')}</td></tr>`}</tbody>
     </table>
     </div>
-  </section>
-
-  <!-- ── Players ── -->
-  <section class="admin-section">
-    <div class="section-header">
-      <h2>${t('players')}</h2>
-      <button class="btn btn-primary" onclick="openAddPlayer()">${t('add_player')}</button>
-    </div>
-    ${playerGroupHtml}
-  </section>
-
-  <!-- ── Seasons & Matches ── -->
-  <section class="admin-section">
-    <div class="section-header">
-      <h2>${t('seasons_matches')}</h2>
-      <button class="btn btn-primary" onclick="openAddSeason()">${t('add_season')}</button>
-    </div>
-    ${seasons.length === 0 ? `<p class="empty-state">${t('no_seasons_admin')}</p>` : seasonGroups}
-  </section>
+  </div>
 
   <!-- ── Category Modal ── -->
   <div id="modal-category" class="modal hidden">
@@ -260,20 +269,26 @@ router.get('/', (req, res) => {
   res.send(layout(t('admin'), body, { activePage: 'admin', lang, t }));
 });
 
+// Helper: redirect back to admin preserving ?tab= from the request query
+function adminRedirect(res, req, fallback) {
+  const tab = req.query.tab || fallback || 'players';
+  res.redirect(`/admin?tab=${tab}`);
+}
+
 // ── Categories ────────────────────────────────────────────────────────────────
 router.post('/category/add', (req, res) => {
   const { name, sort_order } = req.body;
   if (name) db.insertCategory(name.trim(), parseInt(sort_order) || 0);
-  res.redirect('/admin');
+  adminRedirect(res, req, 'categories');
 });
 router.post('/category/:id/edit', (req, res) => {
   const { name, sort_order } = req.body;
   db.updateCategory(req.params.id, name.trim(), parseInt(sort_order) || 0);
-  res.redirect('/admin');
+  adminRedirect(res, req, 'categories');
 });
 router.post('/category/:id/delete', (req, res) => {
   db.deleteCategory(req.params.id);
-  res.redirect('/admin');
+  adminRedirect(res, req, 'categories');
 });
 
 // ── Players ───────────────────────────────────────────────────────────────────
@@ -289,45 +304,45 @@ router.post('/player/add', (req, res) => {
     const result = db.insertPlayer(name.trim(), (number || '').trim());
     db.setPlayerCategories(result.lastInsertRowid, parseCategoryIds(category_ids));
   }
-  res.redirect('/admin');
+  adminRedirect(res, req, 'players');
 });
 router.post('/player/:id/edit', (req, res) => {
   const { name, number, active, category_ids } = req.body;
   db.updatePlayer(req.params.id, name.trim(), (number || '').trim(), active ? 1 : 0);
   db.setPlayerCategories(req.params.id, parseCategoryIds(category_ids));
-  res.redirect('/admin');
+  adminRedirect(res, req, 'players');
 });
 
 // ── Seasons ───────────────────────────────────────────────────────────────────
 router.post('/season/add', (req, res) => {
   const { name, category_id } = req.body;
   if (name) db.insertSeason(name.trim(), category_id || null);
-  res.redirect('/admin');
+  adminRedirect(res, req, 'seasons');
 });
 router.post('/season/:id/edit', (req, res) => {
   const { name, category_id } = req.body;
   db.updateSeason(req.params.id, name.trim(), category_id || null);
-  res.redirect('/admin');
+  adminRedirect(res, req, 'seasons');
 });
 router.post('/season/:id/delete', (req, res) => {
   db.deleteSeason(req.params.id);
-  res.redirect('/admin');
+  adminRedirect(res, req, 'seasons');
 });
 
 // ── Matches ───────────────────────────────────────────────────────────────────
 router.post('/match/add', (req, res) => {
   const { season_id, opponent, match_date, location } = req.body;
   db.insertMatch(season_id, opponent.trim(), match_date, (location || '').trim());
-  res.redirect('/admin');
+  adminRedirect(res, req, 'seasons');
 });
 router.post('/match/:id/edit', (req, res) => {
   const { opponent, match_date, location } = req.body;
   db.updateMatch(req.params.id, opponent.trim(), match_date, (location || '').trim());
-  res.redirect('/admin');
+  adminRedirect(res, req, 'seasons');
 });
 router.post('/match/:id/delete', (req, res) => {
   db.deleteMatch(req.params.id);
-  res.redirect('/admin');
+  adminRedirect(res, req, 'seasons');
 });
 
 module.exports = router;

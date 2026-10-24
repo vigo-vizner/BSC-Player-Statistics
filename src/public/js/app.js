@@ -149,7 +149,37 @@ async function undoLast(matchId) {
   }
 }
 
+/* ── Admin tab switching ─────────────────────────────────────────────────── */
+(function initAdminTabs() {
+  const bar = document.getElementById('admin-tabs');
+  if (!bar) return;
+
+  function showTab(name) {
+    bar.querySelectorAll('.admin-tab').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.tab === name);
+    });
+    document.querySelectorAll('.admin-panel').forEach(panel => {
+      panel.classList.toggle('active', panel.id === `panel-${name}`);
+    });
+    // Keep URL in sync so refresh lands on the same tab
+    const url = new URL(window.location);
+    url.searchParams.set('tab', name);
+    history.replaceState(null, '', url);
+    window._adminTab = name;
+  }
+
+  bar.addEventListener('click', e => {
+    const btn = e.target.closest('.admin-tab');
+    if (btn) showTab(btn.dataset.tab);
+  });
+})();
+
 /* ── Admin modals ────────────────────────────────────────────────────────── */
+function _tabQ() {
+  const t = window._adminTab || 'players';
+  return `?tab=${t}`;
+}
+
 function openModal(id) {
   document.getElementById(id).classList.remove('hidden');
   document.getElementById('modal-overlay').classList.remove('hidden');
@@ -164,15 +194,14 @@ function closeAllModals() {
 }
 
 function openAddCategory() {
-  document.getElementById('modal-category-title').textContent = document.getElementById('modal-category-title').closest('.modal-box').dataset.addLabel || 'Add Category';
-  document.getElementById('form-category').action = '/admin/category/add';
+  document.getElementById('form-category').action = '/admin/category/add' + _tabQ();
   document.getElementById('category-id').value = '';
   document.getElementById('category-name').value = '';
   document.getElementById('category-sort').value = '0';
   openModal('modal-category');
 }
 function openEditCategory(id, name, sort) {
-  document.getElementById('form-category').action = `/admin/category/${id}/edit`;
+  document.getElementById('form-category').action = `/admin/category/${id}/edit` + _tabQ();
   document.getElementById('category-id').value = id;
   document.getElementById('category-name').value = name;
   document.getElementById('category-sort').value = sort;
@@ -180,7 +209,7 @@ function openEditCategory(id, name, sort) {
 }
 
 function openAddPlayer() {
-  document.getElementById('form-player').action = '/admin/player/add';
+  document.getElementById('form-player').action = '/admin/player/add' + _tabQ();
   document.getElementById('player-id').value = '';
   document.getElementById('player-name').value = '';
   document.getElementById('player-number').value = '';
@@ -190,7 +219,7 @@ function openAddPlayer() {
   openModal('modal-player');
 }
 function openEditPlayer(id, name, number, active, categoryIds) {
-  document.getElementById('form-player').action = `/admin/player/${id}/edit`;
+  document.getElementById('form-player').action = `/admin/player/${id}/edit` + _tabQ();
   document.getElementById('player-id').value = id;
   document.getElementById('player-name').value = name;
   document.getElementById('player-number').value = number;
@@ -205,14 +234,14 @@ function openEditPlayer(id, name, number, active, categoryIds) {
 }
 
 function openAddSeason() {
-  document.getElementById('form-season').action = '/admin/season/add';
+  document.getElementById('form-season').action = '/admin/season/add' + _tabQ();
   document.getElementById('season-id').value = '';
   document.getElementById('season-name').value = '';
   document.getElementById('season-category').value = '';
   openModal('modal-season');
 }
 function openEditSeason(id, name, categoryId) {
-  document.getElementById('form-season').action = `/admin/season/${id}/edit`;
+  document.getElementById('form-season').action = `/admin/season/${id}/edit` + _tabQ();
   document.getElementById('season-id').value = id;
   document.getElementById('season-name').value = name;
   document.getElementById('season-category').value = categoryId || '';
@@ -220,8 +249,7 @@ function openEditSeason(id, name, categoryId) {
 }
 
 function openAddMatch(seasonId) {
-  document.getElementById('modal-match-title').textContent = 'Add Match';
-  document.getElementById('form-match').action = '/admin/match/add';
+  document.getElementById('form-match').action = '/admin/match/add' + _tabQ();
   document.getElementById('match-id').value = '';
   document.getElementById('match-season-id').value = seasonId;
   document.getElementById('match-opponent').value = '';
@@ -230,8 +258,7 @@ function openAddMatch(seasonId) {
   openModal('modal-match');
 }
 function openEditMatch(id, opponent, date, location) {
-  document.getElementById('modal-match-title').textContent = 'Edit Match';
-  document.getElementById('form-match').action = `/admin/match/${id}/edit`;
+  document.getElementById('form-match').action = `/admin/match/${id}/edit` + _tabQ();
   document.getElementById('match-id').value = id;
   document.getElementById('match-opponent').value = opponent;
   document.getElementById('match-date').value = date;

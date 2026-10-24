@@ -319,6 +319,27 @@ body.login-page {
   background: var(--bsc-blue); border-color: var(--bsc-blue); color: #fff;
 }
 
+/* ── Admin tab bar ───────────────────────────────────────────────────────── */
+.admin-tabs {
+  display: flex; gap: 0; border-bottom: 2px solid var(--border);
+  margin-bottom: 1.5rem;
+}
+.admin-tab {
+  padding: .6rem 1.25rem; cursor: pointer;
+  font-family: 'Barlow Condensed', system-ui, sans-serif;
+  font-size: 1.05rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+  color: var(--muted); border: none; background: none;
+  border-bottom: 3px solid transparent; margin-bottom: -2px;
+  transition: color .15s, border-color .15s;
+  white-space: nowrap;
+}
+.admin-tab:hover { color: var(--bsc-blue); }
+.admin-tab.active { color: var(--bsc-blue); border-bottom-color: var(--bsc-yellow); }
+
+/* ── Admin tab panels ────────────────────────────────────────────────────── */
+.admin-panel { display: none; }
+.admin-panel.active { display: block; }
+
 /* ── Category / player group labels in admin ─────────────────────────────── */
 .cat-group-label, .player-group-label {
   font-family: 'Barlow Condensed', system-ui, sans-serif;
