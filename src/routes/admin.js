@@ -56,10 +56,12 @@ router.get('/', (req, res) => {
           <button class="btn btn-sm btn-primary" onclick="openAddMatch(${s.id})">${t('add_match')}</button>
         </div>
       </div>
+      <div class="table-wrap">
       <table class="data-table">
         <thead><tr><th>${t('date')}</th><th>${t('opponent')}</th><th>${t('location')}</th><th>${t('status')}</th><th>${t('actions')}</th></tr></thead>
         <tbody>${matchRows || `<tr><td colspan="5" class="empty">${t('no_matches_admin')}</td></tr>`}</tbody>
       </table>
+      </div>
     </div>`;
   }).join('');
 
@@ -73,10 +75,12 @@ router.get('/', (req, res) => {
       <h2>${t('players')}</h2>
       <button class="btn btn-primary" onclick="openAddPlayer()">${t('add_player')}</button>
     </div>
+    <div class="table-wrap">
     <table class="data-table">
       <thead><tr><th>${t('jersey')}</th><th>${t('name')}</th><th>${t('status')}</th><th>${t('actions')}</th></tr></thead>
       <tbody>${playerRows || `<tr><td colspan="4" class="empty">${t('no_data')}</td></tr>`}</tbody>
     </table>
+    </div>
   </section>
 
   <section class="admin-section">

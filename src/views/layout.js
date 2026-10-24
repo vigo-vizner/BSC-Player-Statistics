@@ -25,13 +25,15 @@ function layout(title, body, { activePage = '', lang = 'en', t = (k) => k } = {}
 <body>
   <header>
     <div class="header-inner">
-      <a href="/dashboard" style="display:flex;align-items:center;gap:.6rem;text-decoration:none;">
+      <a href="/dashboard" class="header-logo-link">
         <img src="/img/BSC_logo.jpg" alt="BSC Bratislava" class="logo-img">
         <div class="logo-text">${t('app_name')}<span>${t('app_subtitle')}</span></div>
       </a>
       <nav>${nav}</nav>
-      ${langToggle}
-      <a href="/logout" class="logout-btn">${t('logout')}</a>
+      <div class="header-right">
+        ${langToggle}
+        <a href="/logout" class="logout-btn">${t('logout')}</a>
+      </div>
     </div>
   </header>
   <main>${body}</main>

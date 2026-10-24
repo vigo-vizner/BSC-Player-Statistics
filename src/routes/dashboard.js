@@ -37,10 +37,12 @@ router.get('/', (req, res) => {
         <h2>${esc(s.name)}</h2>
         <a href="/season/${s.id}/summary" class="btn btn-sm btn-outline">${t('season_summary')}</a>
       </div>
+      <div class="table-wrap">
       <table class="data-table">
         <thead><tr><th>${t('date')}</th><th>${t('opponent')}</th><th>${t('location')}</th><th>${t('status')}</th><th>${t('actions')}</th></tr></thead>
         <tbody>${matchRows || `<tr><td colspan="5" class="empty">${t('no_matches')}</td></tr>`}</tbody>
       </table>
+      </div>
     </div>`;
   }).join('');
 

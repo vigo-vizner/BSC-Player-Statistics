@@ -31,10 +31,10 @@ function buildSummaryTable(statMap, players, t) {
   }).filter(Boolean).join('') || `<tr><td colspan="12" class="empty">${t('no_data')}</td></tr>`;
 
   const headers = STAT_TYPES.map(st => `<th>${t(STAT_KEYS[st])}</th>`).join('');
-  return `<table class="data-table summary-table">
+  return `<div class="summary-wrap"><table class="data-table summary-table">
     <thead><tr><th>${t('player')}</th><th>${t('pts')}</th>${headers}</tr></thead>
     <tbody>${rows}</tbody>
-  </table>`;
+  </table></div>`;
 }
 
 // ── GET /match/:id/summary ────────────────────────────────────────────────────
