@@ -53,9 +53,13 @@ router.get('/match/:id/summary', (req, res) => {
     ? `<span class="badge badge-red">🔒 ${t('closed')}</span>`
     : `<span class="badge badge-green">${t('open')}</span>`;
 
+  const scoreDisplay = (match.score_bsc || match.score_opponent)
+    ? `<span class="summary-score">${match.score_bsc || 0} — ${match.score_opponent || 0}</span>`
+    : '';
+
   const body = `
   <div class="page-header">
-    <h1>${t('summary_title')}: ${t('vs')} ${esc(match.opponent)} ${closedBadge}</h1>
+    <h1>${t('summary_title')}: ${t('vs')} ${esc(match.opponent)} ${scoreDisplay} ${closedBadge}</h1>
     <p class="match-meta">${match.match_date}${match.location ? ' · '+esc(match.location) : ''} · ${esc(match.season_name)}</p>
   </div>
   <div class="summary-actions">

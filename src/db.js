@@ -65,6 +65,8 @@ const migrations = [
   "ALTER TABLE players ADD COLUMN category_id INTEGER",
   "ALTER TABLE matches ADD COLUMN match_type TEXT NOT NULL DEFAULT 'league'",
   "ALTER TABLE matches ADD COLUMN tournament_name TEXT NOT NULL DEFAULT ''",
+  "ALTER TABLE matches ADD COLUMN score_bsc INTEGER NOT NULL DEFAULT 0",
+  "ALTER TABLE matches ADD COLUMN score_opponent INTEGER NOT NULL DEFAULT 0",
 ];
 for (const sql of migrations) {
   try { db.prepare(sql).run(); } catch (_) { /* column already exists */ }
@@ -165,6 +167,12 @@ const insertMatch  = (seasonId, opponent, date, location, matchType, tournamentN
 const updateMatch  = (id, opponent, date, location, matchType, tournamentName) =>
   db.prepare('UPDATE matches SET opponent=?,match_date=?,location=?,match_type=?,tournament_name=? WHERE id=?')
     .run(opponent, date, location, matchType || 'league', tournamentName || '', id);
+const updateMatchScore = (id, scoreBsc, scoreOpponent) =>
+  db.prepare('UPDATE matches SET score_bsc=?,score_opponent=? WHERE id=?').run(
+    Math.max(0, parseInt(scoreBsc) || 0),
+    Math.max(0, parseInt(scoreOpponent) || 0),
+    id
+  );
 const deleteMatch  = (id) => db.prepare('DELETE FROM matches WHERE id=?').run(id);
 const closeMatch   = (id) => db.prepare("UPDATE matches SET status='closed' WHERE id=?").run(id);
 const reopenMatch  = (id) => db.prepare("UPDATE matches SET status='open' WHERE id=?").run(id);
@@ -203,7 +211,7 @@ module.exports = {
   getPlayerCategoryIds, setPlayerCategories,
   getPlayers, getActivePlayers, getActivePlayersByCat, insertPlayer, updatePlayer,
   getSeasons, getSeasonsByCat, insertSeason, updateSeason, deleteSeason,
-  getMatchesBySeason, getMatch, insertMatch, updateMatch, deleteMatch,
+  getMatchesBySeason, getMatch, insertMatch, updateMatch, updateMatchScore, deleteMatch,
   closeMatch, reopenMatch,
   insertStat, getLastStat, deleteStat, deleteLastStatOfType, getStatsByMatch, getStatsBySeasonRaw,
   getSeasonPtsByPlayer,

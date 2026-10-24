@@ -145,6 +145,27 @@ router.get('/:id', (req, res) => {
   const editBanner = isClosed ? '' :
     `<div class="edit-banner hidden" id="edit-banner">${t('edit_mode_banner')}</div>`;
 
+  // Scoreboard — editable inputs when open, plain text when closed
+  const scoreBoard = isClosed
+    ? `<div class="scoreboard scoreboard--closed">
+        <span class="score-team">${t('bsc')}</span>
+        <span class="score-val" id="score-bsc">${match.score_bsc || 0}</span>
+        <span class="score-sep">—</span>
+        <span class="score-val" id="score-opp">${match.score_opponent || 0}</span>
+        <span class="score-team">${esc(match.opponent)}</span>
+      </div>`
+    : `<div class="scoreboard" id="scoreboard">
+        <span class="score-team">${t('bsc')}</span>
+        <input class="score-input" id="score-bsc-input" type="number" min="0" max="999"
+          value="${match.score_bsc || 0}" data-match="${match.id}" data-side="bsc"
+          aria-label="${t('bsc')} score">
+        <span class="score-sep">—</span>
+        <input class="score-input" id="score-opp-input" type="number" min="0" max="999"
+          value="${match.score_opponent || 0}" data-match="${match.id}" data-side="opp"
+          aria-label="${esc(match.opponent)} score">
+        <span class="score-team">${esc(match.opponent)}</span>
+      </div>`;
+
   const body = `
   ${closedBanner}
   ${editBanner}
@@ -153,6 +174,7 @@ router.get('/:id', (req, res) => {
       <h1>${t('vs')} ${esc(match.opponent)} ${syncIndicator}</h1>
       <p class="match-meta">${match.match_date}${match.location ? ' · '+esc(match.location) : ''} · ${esc(match.season_name)}</p>
     </div>
+    ${scoreBoard}
     <div class="match-actions">
       ${liveControls}
       <a href="/match/${match.id}/summary" class="btn btn-outline">${t('summary')}</a>
@@ -286,6 +308,21 @@ router.post('/:id/undo', (req, res) => {
   sse.broadcast(match.id, 'undo', payload);
 
   res.json({ ok: true, ...payload });
+});
+
+// ── POST /match/:id/score ─────────────────────────────────────────────────────
+router.post('/:id/score', (req, res) => {
+  const match = db.getMatch(req.params.id);
+  if (!match) return res.status(404).json({ error: 'match not found' });
+  if (match.status === 'closed') return res.status(403).json({ error: 'match is closed' });
+
+  const { score_bsc, score_opponent } = req.body;
+  db.updateMatchScore(match.id, score_bsc, score_opponent);
+
+  const updated = db.getMatch(match.id);
+  const payload = { ok: true, score_bsc: updated.score_bsc, score_opponent: updated.score_opponent };
+  sse.broadcast(match.id, 'score', payload);
+  res.json(payload);
 });
 
 // ── POST /match/:id/close ─────────────────────────────────────────────────────

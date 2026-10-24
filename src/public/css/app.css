@@ -204,11 +204,59 @@ body.login-page {
 
 /* ── Match page ──────────────────────────────────────────────────────────── */
 .match-header {
-  display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
   gap: .75rem; margin-bottom: 1rem;
 }
 .match-header h1 { font-size: 1.6rem; color: var(--bsc-blue); }
 .match-actions { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
+
+/* ── Scoreboard ──────────────────────────────────────────────────────────── */
+.scoreboard {
+  display: flex; align-items: center; gap: .5rem;
+  background: var(--bsc-blue); border-radius: var(--radius);
+  padding: .35rem .75rem; flex-shrink: 0;
+}
+.score-team {
+  font-family: 'Barlow Condensed', system-ui, sans-serif;
+  font-size: .85rem; font-weight: 700; color: rgba(255,255,255,.7);
+  letter-spacing: .04em; text-transform: uppercase; white-space: nowrap;
+}
+.score-val {
+  font-family: 'Barlow Condensed', system-ui, sans-serif;
+  font-size: 1.6rem; font-weight: 800; color: #fff; min-width: 2ch; text-align: center;
+  line-height: 1;
+}
+.score-sep {
+  font-family: 'Barlow Condensed', system-ui, sans-serif;
+  font-size: 1.3rem; font-weight: 700; color: var(--bsc-yellow); line-height: 1;
+}
+.score-input {
+  width: 3.2rem; text-align: center; font-size: 1.5rem; font-weight: 800; line-height: 1;
+  font-family: 'Barlow Condensed', system-ui, sans-serif;
+  background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25);
+  border-radius: 6px; color: #fff; padding: .1rem .2rem;
+  -moz-appearance: textfield;
+}
+.score-input::-webkit-outer-spin-button,
+.score-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.score-input:focus {
+  outline: none; background: rgba(255,255,255,.22);
+  border-color: var(--bsc-yellow);
+}
+
+/* ── Score display in summary / dashboard ────────────────────────────────── */
+.summary-score {
+  font-family: 'Barlow Condensed', system-ui, sans-serif;
+  font-size: 1.1rem; font-weight: 800; color: var(--bsc-blue);
+  background: #eef2ff; border-radius: 6px; padding: .1rem .5rem;
+  letter-spacing: .03em;
+}
+.match-score {
+  font-family: 'Barlow Condensed', system-ui, sans-serif;
+  font-size: .85rem; font-weight: 700; color: var(--bsc-blue);
+  background: #eef2ff; border-radius: 4px; padding: .05rem .4rem;
+  white-space: nowrap;
+}
 .undo-bar {
   display: flex; align-items: center; gap: .6rem;
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
@@ -497,10 +545,13 @@ select:focus { outline: none; border-color: var(--bsc-yellow); box-shadow: 0 0 0
   main { padding: 1rem .75rem 3rem; }
 
   /* Match header stacks vertically */
-  .match-header { flex-direction: column; gap: .5rem; }
+  .match-header { flex-direction: column; gap: .5rem; align-items: stretch; }
   .match-header h1 { font-size: 1.3rem; }
   .match-actions { width: 100%; flex-wrap: wrap; }
   .undo-bar { flex: 1; flex-wrap: wrap; min-width: 0; }
+  .scoreboard { justify-content: center; width: 100%; }
+  .score-input { width: 2.8rem; font-size: 1.35rem; }
+  .score-val { font-size: 1.4rem; }
 
   /* Stat buttons slightly smaller */
   .stat-btn { min-width: 30px; height: 34px; font-size: .78rem; }

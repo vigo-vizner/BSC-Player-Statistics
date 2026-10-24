@@ -44,9 +44,58 @@
       es.close();
       window.location.reload();
     });
+
+    // Another device updated the score
+    es.addEventListener('score', (e) => {
+      const data = JSON.parse(e.data);
+      const bscInput = document.getElementById('score-bsc-input');
+      const oppInput = document.getElementById('score-opp-input');
+      // Only update if the field isn't currently focused (don't clobber typing)
+      if (bscInput && document.activeElement !== bscInput) bscInput.value = data.score_bsc;
+      if (oppInput && document.activeElement !== oppInput) oppInput.value = data.score_opponent;
+    });
   }
 
   connect();
+})();
+
+/* ── Score inputs — debounced auto-save ──────────────────────────────────── */
+(function initScoreInputs() {
+  const scoreboard = document.getElementById('scoreboard');
+  if (!scoreboard) return;
+
+  let _timer = null;
+
+  function saveScore() {
+    const bscInput = document.getElementById('score-bsc-input');
+    const oppInput = document.getElementById('score-opp-input');
+    if (!bscInput || !oppInput) return;
+    const matchId = bscInput.dataset.match;
+    fetch(`/match/${matchId}/score`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        score_bsc:       parseInt(bscInput.value)  || 0,
+        score_opponent:  parseInt(oppInput.value)  || 0,
+      }),
+    }).catch(() => {}); // silent fail — score is non-critical
+  }
+
+  scoreboard.addEventListener('input', (e) => {
+    if (!e.target.classList.contains('score-input')) return;
+    // Clamp to 0–999
+    const v = parseInt(e.target.value) || 0;
+    e.target.value = Math.min(999, Math.max(0, v));
+    clearTimeout(_timer);
+    _timer = setTimeout(saveScore, 600); // debounce 600ms
+  });
+
+  // Also save immediately on blur (navigating away)
+  scoreboard.addEventListener('change', (e) => {
+    if (!e.target.classList.contains('score-input')) return;
+    clearTimeout(_timer);
+    saveScore();
+  });
 })();
 
 /** Update all stat buttons (table row + accordion + edit controls) for a player. */
