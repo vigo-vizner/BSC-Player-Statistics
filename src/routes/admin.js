@@ -2,6 +2,8 @@ const express  = require('express');
 const router   = express.Router();
 const db       = require('../db');
 const { layout } = require('../views/layout');
+const { buildTour } = require('../tour');
+
 
 function esc(str) {
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -290,7 +292,7 @@ router.get('/', (req, res) => {
   </div>
   <div class="modal-overlay hidden" id="modal-overlay" onclick="closeAllModals()"></div>`;
 
-  res.send(layout(t('admin'), body, { activePage: 'admin', lang, t }));
+  res.send(layout(t('admin'), body, { activePage: 'admin', lang, t, tour: buildTour('admin', t) }));
 });
 
 // Helper: redirect back to admin preserving ?tab= from the request query

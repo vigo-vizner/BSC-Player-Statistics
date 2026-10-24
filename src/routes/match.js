@@ -3,6 +3,7 @@ const router   = express.Router();
 const db       = require('../db');
 const sse      = require('../sse');
 const { layout } = require('../views/layout');
+const { buildTour } = require('../tour');
 
 const STAT_TYPES = ['1pt','2pt','3pt','oreb','dreb','ast','to','blk','stl','pf'];
 const STAT_KEYS  = { '1pt':'stat_1pt','2pt':'stat_2pt','3pt':'stat_3pt','oreb':'stat_oreb','dreb':'stat_dreb','ast':'stat_ast','to':'stat_to','blk':'stat_blk','stl':'stat_stl','pf':'stat_pf' };
@@ -198,7 +199,7 @@ router.get('/:id', (req, res) => {
   <div id="toast" class="toast hidden"></div>
   ${!isClosed ? `<script>window._matchId = ${match.id};</script>` : ''}`;
 
-  res.send(layout(`${t('vs')} ${match.opponent}`, body, { lang, t }));
+  res.send(layout(`${t('vs')} ${match.opponent}`, body, { lang, t, tour: isClosed ? null : buildTour('match', t) }));
 });
 
 // ── GET /match/:id/events  (SSE stream) ───────────────────────────────────────

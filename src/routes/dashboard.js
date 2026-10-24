@@ -2,6 +2,7 @@ const express  = require('express');
 const router   = express.Router();
 const db       = require('../db');
 const { layout } = require('../views/layout');
+const { buildTour } = require('../tour');
 
 function esc(str) {
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -98,7 +99,7 @@ router.get('/', (req, res) => {
       ? `<p class="empty-state">${t('no_seasons')}</p>`
       : seasonsHtml}`;
 
-  res.send(layout(t('dashboard'), body, { activePage: 'dashboard', lang, t }));
+  res.send(layout(t('dashboard'), body, { activePage: 'dashboard', lang, t, tour: buildTour('dashboard', t) }));
 });
 
 module.exports = router;

@@ -3,7 +3,7 @@
  * Returns complete HTML strings — no template engine dependency.
  */
 
-function layout(title, body, { activePage = '', lang = 'en', t = (k) => k } = {}) {
+function layout(title, body, { activePage = '', lang = 'en', t = (k) => k, tour = null } = {}) {
   const nav = [
     { href: '/dashboard', label: t('nav_dashboard'), key: 'dashboard' },
     { href: '/admin',     label: t('nav_admin'),     key: 'admin' },
@@ -13,6 +13,13 @@ function layout(title, body, { activePage = '', lang = 'en', t = (k) => k } = {}
 
   const otherLang = lang === 'en' ? 'sk' : 'en';
   const langToggle = `<a href="/lang/${otherLang}" class="lang-toggle" title="Switch language">${otherLang.toUpperCase()}</a>`;
+  const tourBtn = tour
+    ? `<button type="button" id="tour-btn" class="tour-btn" title="${t('tour_help')}" aria-label="${t('tour_help')}">?</button>`
+    : '';
+  // Escape "<" so config text can never close the script tag
+  const tourScript = tour
+    ? `<script>window._tour = ${JSON.stringify(tour).replace(/</g, '\\u003c')};</script>\n  <script src="/js/tour.js"></script>`
+    : '';
 
   return `<!DOCTYPE html>
 <html lang="${lang}">
@@ -31,6 +38,7 @@ function layout(title, body, { activePage = '', lang = 'en', t = (k) => k } = {}
       </a>
       <nav>${nav}</nav>
       <div class="header-right">
+        ${tourBtn}
         ${langToggle}
         <a href="/logout" class="logout-btn">${t('logout')}</a>
       </div>
@@ -38,6 +46,7 @@ function layout(title, body, { activePage = '', lang = 'en', t = (k) => k } = {}
   </header>
   <main>${body}</main>
   <script src="/js/app.js"></script>
+  ${tourScript}
 </body>
 </html>`;
 }
