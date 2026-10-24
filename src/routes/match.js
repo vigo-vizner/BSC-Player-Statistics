@@ -178,6 +178,7 @@ router.get('/:id', (req, res) => {
     <div class="match-actions">
       ${liveControls}
       <a href="/match/${match.id}/summary" class="btn btn-outline">${t('summary')}</a>
+      <a href="/share/match/${match.id}" target="_blank" class="btn btn-outline">🔗 ${t('share')}</a>
     </div>
   </div>
 

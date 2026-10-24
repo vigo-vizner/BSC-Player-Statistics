@@ -47,6 +47,9 @@ app.get('/lang/:code', (req, res) => {
 app.use('/login',    require('./routes/login'));
 app.use('/logout',   (req, res) => { req.session.destroy(); res.redirect('/login'); });
 
+// Public routes — no auth required
+app.use('/share',    require('./routes/share'));
+
 // Everything below requires auth
 app.use(requireAuth);
 

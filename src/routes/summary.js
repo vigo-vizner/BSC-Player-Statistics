@@ -64,6 +64,7 @@ router.get('/match/:id/summary', (req, res) => {
   </div>
   <div class="summary-actions">
     <a href="/match/${match.id}" class="btn">${t('back_to_match')}</a>
+    <a href="/share/match/${match.id}" target="_blank" class="btn btn-primary">🔗 ${t('share')}</a>
     <a href="/match/${match.id}/export.csv" class="btn btn-outline">${t('export_csv')}</a>
   </div>
   ${table}`;

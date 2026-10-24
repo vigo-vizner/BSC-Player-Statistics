@@ -112,6 +112,7 @@ const translations = {
 
     // Summary
     summary_title:        'Summary',
+    share:                'Share',
     back_to_match:        '← Back to Match',
     back_to_dashboard:    '← Dashboard',
     export_csv:           'Export CSV',
@@ -242,6 +243,7 @@ const translations = {
 
     // Summary
     summary_title:        'Súhrn',
+    share:                'Zdieľať',
     back_to_match:        '← Späť na zápas',
     back_to_dashboard:    '← Prehľad',
     export_csv:           'Exportovať CSV',
