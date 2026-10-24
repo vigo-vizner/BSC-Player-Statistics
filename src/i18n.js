@@ -92,6 +92,15 @@ const translations = {
     reopen:               '🔓 Reopen',
     close_match:          '🔒 Close',
 
+    // Delete-confirm modal
+    delete_confirm_title:   'Confirm Delete',
+    delete_confirm_what:    'Deleting',
+    delete_confirm_password:'Enter admin password to confirm:',
+    delete_confirm_wrong_pw:'Wrong password — try again.',
+    delete_confirm_btn:     'Delete',
+
+
+
     // Live match
     vs:                   'vs',
     undo:                 '↩ Undo',
@@ -223,6 +232,15 @@ const translations = {
     confirm_close:        'Uzavrieť zápas? Štatistiky budú uzamknuté.',
     reopen:               '🔓 Otvoriť znova',
     close_match:          '🔒 Uzavrieť',
+
+    // Delete-confirm modal
+    delete_confirm_title:   'Potvrdiť vymazanie',
+    delete_confirm_what:    'Mažem',
+    delete_confirm_password:'Zadajte admin heslo na potvrdenie:',
+    delete_confirm_wrong_pw:'Nesprávne heslo — skúste znova.',
+    delete_confirm_btn:     'Vymazať',
+
+
 
     // Live match
     vs:                   'vs',

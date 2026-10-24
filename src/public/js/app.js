@@ -542,3 +542,54 @@ function escHtml(str) {
   return String(str)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+/* ── Delete-confirm modal ─────────────────────────────────────────────────── */
+let _deleteConfirmUrl = '';
+
+function openDeleteConfirm(url, label) {
+  _deleteConfirmUrl = url;
+  document.getElementById('delete-confirm-label').textContent = label;
+  document.getElementById('delete-confirm-pw').value = '';
+  document.getElementById('delete-confirm-error').classList.add('hidden');
+  openModal('modal-delete');
+  setTimeout(() => document.getElementById('delete-confirm-pw').focus(), 100);
+}
+
+async function submitDeleteConfirm() {
+  const pw = document.getElementById('delete-confirm-pw').value;
+  const errEl = document.getElementById('delete-confirm-error');
+  const btn = document.getElementById('delete-confirm-btn');
+
+  btn.disabled = true;
+  try {
+    const verifyRes = await fetch('/admin/verify-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pw })
+    });
+    const { ok } = await verifyRes.json();
+    if (!ok) {
+      errEl.classList.remove('hidden');
+      document.getElementById('delete-confirm-pw').value = '';
+      document.getElementById('delete-confirm-pw').focus();
+      btn.disabled = false;
+      return;
+    }
+
+    // Password correct — submit the delete action
+    await fetch(_deleteConfirmUrl, { method: 'POST' });
+    // Redirect back preserving tab param from the delete URL
+    const tabMatch = _deleteConfirmUrl.match(/[?&]tab=([^&]+)/);
+    const tab = tabMatch ? tabMatch[1] : 'players';
+    window.location.href = `/admin?tab=${tab}`;
+  } catch (_) {
+    btn.disabled = false;
+  }
+}
+
+// Allow Enter key in password field to submit
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.activeElement && document.activeElement.id === 'delete-confirm-pw') {
+    submitDeleteConfirm();
+  }
+});

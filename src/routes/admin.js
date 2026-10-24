@@ -38,10 +38,7 @@ router.get('/', (req, res) => {
       <td>${c.sort_order}</td>
       <td>
         <button class="btn btn-sm" onclick="openEditCategory(${c.id},'${esc(c.name)}',${c.sort_order})">${t('edit')}</button>
-        <form method="POST" action="/admin/category/${c.id}/delete?tab=categories" style="display:inline"
-              onsubmit="return confirm('${t('confirm_delete_cat')}')">
-          <button class="btn btn-sm btn-danger">${t('delete')}</button>
-        </form>
+        <button class="btn btn-sm btn-danger" onclick="openDeleteConfirm('/admin/category/${c.id}/delete?tab=categories','${t('delete_confirm_what')}: ${esc(c.name)}')">${t('delete')}</button>
       </td>
     </tr>`).join('');
 
@@ -74,6 +71,7 @@ router.get('/', (req, res) => {
         <td><span class="badge ${p.active ? 'badge-green' : 'badge-gray'}">${p.active ? t('active') : t('inactive')}</span></td>
         <td>
           <button class="btn btn-sm" onclick="openEditPlayer(${p.id},'${esc(p.name)}','${esc(p.number)}',${p.active},${esc(catIds)})">${t('edit')}</button>
+          <button class="btn btn-sm btn-danger" onclick="openDeleteConfirm('/admin/player/${p.id}/delete?tab=players','${t('delete_confirm_what')}: #${esc(p.number)} ${esc(p.name)}')">${t('delete')}</button>
         </td>
       </tr>`;
     }).join('');
@@ -116,9 +114,7 @@ router.get('/', (req, res) => {
               ? `<form method="POST" action="/match/${m.id}/reopen?tab=seasons" style="display:inline"><button class="btn btn-sm btn-primary">${t('reopen')}</button></form>`
               : `<form method="POST" action="/match/${m.id}/close?tab=seasons" style="display:inline" onsubmit="return confirm('${t('confirm_close_match')}')"><button class="btn btn-sm btn-warning">${t('close_match')}</button></form>`
             }
-            <form method="POST" action="/admin/match/${m.id}/delete?tab=seasons" style="display:inline" onsubmit="return confirm('${t('confirm_delete_match')}')">
-              <button class="btn btn-sm btn-danger">${t('delete')}</button>
-            </form>
+            <button class="btn btn-sm btn-danger" onclick="openDeleteConfirm('/admin/match/${m.id}/delete?tab=seasons','${t('delete_confirm_what')}: ${esc(m.opponent)} ${m.match_date}')">${t('delete')}</button>
           </td>
         </tr>`;
       }).join('');
@@ -129,9 +125,7 @@ router.get('/', (req, res) => {
           <h3>${esc(s.name)}</h3>
           <div class="btn-group">
             <button class="btn btn-sm" onclick="openEditSeason(${s.id},'${esc(s.name)}',${s.category_id || 'null'})">${t('edit_season')}</button>
-            <form method="POST" action="/admin/season/${s.id}/delete?tab=seasons" style="display:inline" onsubmit="return confirm('${t('confirm_delete_season')}')">
-              <button class="btn btn-sm btn-danger">${t('delete_season')}</button>
-            </form>
+            <button class="btn btn-sm btn-danger" onclick="openDeleteConfirm('/admin/season/${s.id}/delete?tab=seasons','${t('delete_confirm_what')}: ${esc(s.name)}')">${t('delete_season')}</button>
             <button class="btn btn-sm btn-primary" onclick="openAddMatch(${s.id})">${t('add_match')}</button>
           </div>
         </div>
@@ -279,6 +273,21 @@ router.get('/', (req, res) => {
       </form>
     </div>
   </div>
+  <!-- ── Delete Confirm Modal ── -->
+  <div id="modal-delete" class="modal hidden">
+    <div class="modal-box">
+      <h3 style="color:var(--red)">${t('delete_confirm_title')}</h3>
+      <p id="delete-confirm-label" style="font-size:.9rem;color:var(--muted)"></p>
+      <label>${t('delete_confirm_password')}
+        <input type="password" id="delete-confirm-pw" autocomplete="current-password" placeholder="••••••••">
+      </label>
+      <p id="delete-confirm-error" class="error hidden">${t('delete_confirm_wrong_pw')}</p>
+      <div class="modal-actions">
+        <button class="btn btn-danger" id="delete-confirm-btn" onclick="submitDeleteConfirm()">${t('delete_confirm_btn')}</button>
+        <button type="button" class="btn" onclick="closeModal('modal-delete')">${t('cancel')}</button>
+      </div>
+    </div>
+  </div>
   <div class="modal-overlay hidden" id="modal-overlay" onclick="closeAllModals()"></div>`;
 
   res.send(layout(t('admin'), body, { activePage: 'admin', lang, t }));
@@ -327,6 +336,10 @@ router.post('/player/:id/edit', (req, res) => {
   db.setPlayerCategories(req.params.id, parseCategoryIds(category_ids));
   adminRedirect(res, req, 'players');
 });
+router.post('/player/:id/delete', (req, res) => {
+  db.deletePlayer(req.params.id);
+  adminRedirect(res, req, 'players');
+});
 
 // ── Seasons ───────────────────────────────────────────────────────────────────
 router.post('/season/add', (req, res) => {
@@ -359,5 +372,13 @@ router.post('/match/:id/delete', (req, res) => {
   db.deleteMatch(req.params.id);
   adminRedirect(res, req, 'seasons');
 });
+
+
+// ── Password verification (used by delete confirm modal) ──────────────────────
+router.post('/verify-password', (req, res) => {
+  const ok = (req.body.password || '') === (process.env.ADMIN_PASSWORD || '');
+  res.json({ ok });
+});
+
 
 module.exports = router;

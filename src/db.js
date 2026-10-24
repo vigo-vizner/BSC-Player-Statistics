@@ -145,6 +145,13 @@ const insertPlayer = (name, number) =>
 const updatePlayer = (id, name, number, active) =>
   db.prepare('UPDATE players SET name=?,number=?,active=? WHERE id=?').run(name, number, active, id);
 
+
+const deletePlayer = (id) => {
+  db.prepare('DELETE FROM player_categories WHERE player_id=?').run(id);
+  db.prepare('DELETE FROM players WHERE id=?').run(id);
+};
+
+
 // ── Seasons ───────────────────────────────────────────────────────────────────
 const getSeasons      = () => db.prepare('SELECT s.*, c.name as category_name FROM seasons s LEFT JOIN categories c ON c.id=s.category_id ORDER BY c.sort_order, c.name, s.created_at DESC').all();
 const getSeasonsByCat = (categoryId) => db.prepare('SELECT * FROM seasons WHERE category_id=? ORDER BY created_at DESC').all(categoryId);
@@ -209,7 +216,7 @@ const getSeasonPtsByPlayer = (seasonId) => {
 module.exports = {
   getCategories, getCategory, insertCategory, updateCategory, deleteCategory,
   getPlayerCategoryIds, setPlayerCategories,
-  getPlayers, getActivePlayers, getActivePlayersByCat, insertPlayer, updatePlayer,
+  getPlayers, getActivePlayers, getActivePlayersByCat, insertPlayer, updatePlayer, deletePlayer,
   getSeasons, getSeasonsByCat, insertSeason, updateSeason, deleteSeason,
   getMatchesBySeason, getMatch, insertMatch, updateMatch, updateMatchScore, deleteMatch,
   closeMatch, reopenMatch,
