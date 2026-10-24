@@ -184,13 +184,14 @@ async function undoLast(matchId) {
   }
 
   tbody.addEventListener('click', e => {
-    // Don't trigger accordion when tapping stat buttons, pin button, or undo
+    // Don't trigger accordion when tapping stat buttons or pin button
     if (e.target.closest('.stat-btn') || e.target.closest('.pin-btn')) return;
 
-    const nameEl = e.target.closest('.player-name-expand');
-    if (!nameEl) return;
+    // Trigger from anywhere on the main player row (name, PTS cell, row itself)
+    const mainRow = e.target.closest('.player-main-row');
+    if (!mainRow) return;
 
-    const pid = parseInt(nameEl.dataset.playerId, 10);
+    const pid = parseInt(mainRow.dataset.playerId, 10);
     if (openPlayerId === pid) {
       closeAccordion(pid);
     } else {
