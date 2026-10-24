@@ -16,13 +16,16 @@ function layout(title, body, { activePage = '' } = {}) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title} — BSC Stats</title>
+  <title>${title} — BSC Bratislava</title>
   <link rel="stylesheet" href="/css/app.css">
 </head>
 <body>
   <header>
     <div class="header-inner">
-      <span class="logo">🏀 BSC Stats</span>
+      <a href="/dashboard" style="display:flex;align-items:center;gap:.6rem;text-decoration:none;">
+        <img src="/img/BSC_logo.jpg" alt="BSC Bratislava" class="logo-img">
+        <div class="logo-text">BSC Bratislava<span>Player Statistics</span></div>
+      </a>
       <nav>${nav}</nav>
       <a href="/logout" class="logout-btn">Logout</a>
     </div>

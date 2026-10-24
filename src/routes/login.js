@@ -10,18 +10,18 @@ router.get('/', (req, res) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <title>Login — BSC Stats</title>
+  <title>Login — BSC Bratislava</title>
   <link rel="stylesheet" href="/css/app.css">
 </head>
 <body class="login-page">
   <div class="login-box">
-    <h1>🏀 BSC Stats</h1>
-    <p class="subtitle">Basketball Player Statistics</p>
+    <img src="/img/BSC_logo.jpg" alt="BSC Bratislava" class="login-logo">
+    <div class="login-club">BSC Bratislava<span>Player Statistics</span></div>
     ${err}
     <form method="POST" action="/login">
       <label for="password">Admin Password</label>
       <input id="password" type="password" name="password" autofocus autocomplete="current-password" required>
-      <button type="submit">Sign In</button>
+      <button type="submit" class="btn btn-primary">Sign In</button>
     </form>
   </div>
 </body>
