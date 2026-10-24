@@ -1,0 +1,17 @@
+{
+  "name": "bsc-player-statistics",
+  "version": "1.0.0",
+  "description": "Basketball player statistics capture app",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.4.3",
+    "connect-sqlite3": "^0.9.13",
+    "dotenv": "^16.4.5",
+    "express": "^4.18.3",
+    "express-session": "^1.18.0"
+  }
+}
