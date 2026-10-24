@@ -60,17 +60,17 @@ router.get('/', (req, res) => {
     <div class="disclaimer-box">
       <h2>${d.title}</h2>
       <div class="disclaimer-body">${d.body}</div>
+      <!-- Language toggle inside modal so user can switch before accepting -->
+      <a href="/lang/${otherLang}?next=/login" class="lang-toggle lang-toggle--login"
+         style="align-self:flex-start">${otherLang.toUpperCase()}</a>
       <button class="disclaimer-accept" onclick="acceptDisclaimer()">${d.accept}</button>
     </div>
   </div>
 
   <script>
-    // Show once per browser session — re-shows on every new tab/session
-    if (!sessionStorage.getItem('bsc_disclaimer_accepted')) {
-      document.getElementById('disclaimer-overlay').classList.remove('hidden');
-    }
+    // Always show the disclaimer — user must accept per session
+    document.getElementById('disclaimer-overlay').classList.remove('hidden');
     function acceptDisclaimer() {
-      sessionStorage.setItem('bsc_disclaimer_accepted', '1');
       document.getElementById('disclaimer-overlay').classList.add('hidden');
     }
   </script>
