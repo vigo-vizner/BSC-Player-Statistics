@@ -184,16 +184,21 @@ function openAddPlayer() {
   document.getElementById('player-id').value = '';
   document.getElementById('player-name').value = '';
   document.getElementById('player-number').value = '';
-  document.getElementById('player-category').value = '';
+  // deselect all options in multi-select
+  Array.from(document.getElementById('player-categories').options).forEach(o => o.selected = false);
   document.getElementById('player-active-wrap').style.display = 'none';
   openModal('modal-player');
 }
-function openEditPlayer(id, name, number, active, categoryId) {
+function openEditPlayer(id, name, number, active, categoryIds) {
   document.getElementById('form-player').action = `/admin/player/${id}/edit`;
   document.getElementById('player-id').value = id;
   document.getElementById('player-name').value = name;
   document.getElementById('player-number').value = number;
-  document.getElementById('player-category').value = categoryId || '';
+  // categoryIds is a JSON array like [1,3]
+  const ids = (typeof categoryIds === 'string' ? JSON.parse(categoryIds) : (categoryIds || [])).map(String);
+  Array.from(document.getElementById('player-categories').options).forEach(o => {
+    o.selected = ids.includes(o.value);
+  });
   document.getElementById('player-active').checked = !!active;
   document.getElementById('player-active-wrap').style.display = 'flex';
   openModal('modal-player');

@@ -14,6 +14,14 @@ function catOptions(categories, selectedId, t) {
   ).join('');
 }
 
+// Multi-select options — selectedIds is an array of numbers/strings
+function catOptionsMulti(categories, selectedIds, t) {
+  const ids = (selectedIds || []).map(String);
+  return categories.map(c =>
+    `<option value="${c.id}" ${ids.includes(String(c.id)) ? 'selected' : ''}>${esc(c.name)}</option>`
+  ).join('');
+}
+
 // ── GET /admin ────────────────────────────────────────────────────────────────
 router.get('/', (req, res) => {
   const t          = req.t;
@@ -37,29 +45,37 @@ router.get('/', (req, res) => {
     </tr>`).join('');
 
   // ── Players section ───────────────────────────────────────────────────────
-  // Group by category
+  // Group players by each of their categories (a player may appear in multiple groups)
   const catMap = {};
   categories.forEach(c => { catMap[c.id] = []; });
   catMap['null'] = []; // uncategorized
   players.forEach(p => {
-    const key = p.category_id || 'null';
-    if (!catMap[key]) catMap[key] = [];
-    catMap[key].push(p);
+    if (p.categories && p.categories.length > 0) {
+      p.categories.forEach(c => {
+        if (!catMap[c.id]) catMap[c.id] = [];
+        catMap[c.id].push(p);
+      });
+    } else {
+      catMap['null'].push(p);
+    }
   });
 
   const playerGroupHtml = [
     ...categories.map(c => ({ label: esc(c.name), key: c.id })),
     { label: t('uncategorized'), key: 'null' },
   ].filter(g => catMap[g.key] && catMap[g.key].length > 0).map(g => {
-    const rows = catMap[g.key].map(p => `
+    const rows = catMap[g.key].map(p => {
+      const catIds = JSON.stringify((p.categories || []).map(c => c.id));
+      return `
       <tr>
         <td>#${esc(p.number)}</td>
         <td>${esc(p.name)}</td>
         <td><span class="badge ${p.active ? 'badge-green' : 'badge-gray'}">${p.active ? t('active') : t('inactive')}</span></td>
         <td>
-          <button class="btn btn-sm" onclick="openEditPlayer(${p.id},'${esc(p.name)}','${esc(p.number)}',${p.active},${p.category_id || 'null'})">${t('edit')}</button>
+          <button class="btn btn-sm" onclick="openEditPlayer(${p.id},'${esc(p.name)}','${esc(p.number)}',${p.active},${esc(catIds)})">${t('edit')}</button>
         </td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
     return `<div class="player-group">
       <div class="player-group-label">${g.label}</div>
       <div class="table-wrap">
@@ -189,8 +205,9 @@ router.get('/', (req, res) => {
         <input type="hidden" name="id" id="player-id">
         <label>${t('name')} <input type="text" name="name" id="player-name" required></label>
         <label>${t('jersey_number')} <input type="text" name="number" id="player-number"></label>
-        <label>${t('category')}
-          <select name="category_id" id="player-category">${catOptions(categories, null, t)}</select>
+        <label>${t('categories')}
+          <select name="category_ids" id="player-categories" multiple size="4" style="height:auto">${catOptionsMulti(categories, [], t)}</select>
+          <small style="color:var(--muted)">${t('multi_select_hint')}</small>
         </label>
         <label id="player-active-wrap" style="display:none">
           ${t('active')} <input type="checkbox" name="active" id="player-active" value="1">
@@ -260,14 +277,24 @@ router.post('/category/:id/delete', (req, res) => {
 });
 
 // ── Players ───────────────────────────────────────────────────────────────────
+function parseCategoryIds(raw) {
+  if (!raw) return [];
+  const arr = Array.isArray(raw) ? raw : [raw];
+  return arr.map(Number).filter(n => n > 0);
+}
+
 router.post('/player/add', (req, res) => {
-  const { name, number, category_id } = req.body;
-  if (name) db.insertPlayer(name.trim(), (number || '').trim(), category_id || null);
+  const { name, number, category_ids } = req.body;
+  if (name) {
+    const result = db.insertPlayer(name.trim(), (number || '').trim());
+    db.setPlayerCategories(result.lastInsertRowid, parseCategoryIds(category_ids));
+  }
   res.redirect('/admin');
 });
 router.post('/player/:id/edit', (req, res) => {
-  const { name, number, active, category_id } = req.body;
-  db.updatePlayer(req.params.id, name.trim(), (number || '').trim(), active ? 1 : 0, category_id || null);
+  const { name, number, active, category_ids } = req.body;
+  db.updatePlayer(req.params.id, name.trim(), (number || '').trim(), active ? 1 : 0);
+  db.setPlayerCategories(req.params.id, parseCategoryIds(category_ids));
   res.redirect('/admin');
 });
 

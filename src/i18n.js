@@ -49,6 +49,7 @@ const translations = {
     confirm_delete_cat:   'Delete this category? Players and seasons will become uncategorized.',
     uncategorized:        'Uncategorized',
     all_categories:       'All',
+    multi_select_hint:    'Hold Ctrl / Cmd to select multiple',
 
     // Admin
     admin:                'Admin',
@@ -165,6 +166,7 @@ const translations = {
     confirm_delete_cat:   'Vymazať kategóriu? Hráči a sezóny sa stanú nekategorizovanými.',
     uncategorized:        'Bez kategórie',
     all_categories:       'Všetky',
+    multi_select_hint:    'Drž Ctrl / Cmd pre výber viacerých',
 
     // Admin
     admin:                'Admin',
