@@ -67,12 +67,33 @@ router.get('/:id', (req, res) => {
         </button>
       </td>`;
     }).join('');
+
+    // Accordion stat buttons for mobile (large grid, shown when row is expanded)
+    const accordionBtns = isClosed ? '' : STAT_TYPES.map(st => {
+      const count = statMap[p.id][st] || 0;
+      return `<button class="stat-btn accord-btn${count > 0 ? ' has-val' : ''}" data-match="${match.id}" data-player="${p.id}" data-stat="${st}">
+        <span class="accord-label">${t(STAT_KEYS[st])}</span>
+        <span class="accord-count">${count > 0 ? count : '+'}</span>
+      </button>`;
+    }).join('');
+
     const pts = totalPoints(statMap, p.id);
-    return `<tr id="player-row-${p.id}">
-      <td class="player-cell"><span class="p-num">#${esc(p.number)}</span> ${esc(p.name)}</td>
+    return `
+    <tr id="player-row-${p.id}" class="player-main-row" data-player-id="${p.id}">
+      <td class="player-cell">
+        <button class="pin-btn" data-player-id="${p.id}" title="Pin player" aria-label="Pin ${esc(p.name)}">☆</button>
+        <span class="player-name-expand" data-player-id="${p.id}">
+          <span class="p-num">#${esc(p.number)}</span> ${esc(p.name)}
+        </span>
+      </td>
       <td class="pts-cell" id="pts-${p.id}">${pts}</td>
       ${statCells}
-    </tr>`;
+    </tr>
+    ${!isClosed ? `<tr id="accord-row-${p.id}" class="accord-row hidden" data-player-id="${p.id}">
+      <td colspan="${2 + STAT_TYPES.length}" class="accord-cell">
+        <div class="accord-grid">${accordionBtns}</div>
+      </td>
+    </tr>` : ''}`;
   }).join('');
 
   const lastPlayer = players.find(p => p.id === lastStat?.player_id);

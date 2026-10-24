@@ -239,11 +239,29 @@ body.login-page {
 .player-cell {
   text-align: left !important; padding: .4rem .75rem !important;
   font-size: .875rem; position: sticky; left: 0; background: var(--surface); z-index: 1; white-space: nowrap;
+  display: flex; align-items: center; gap: .4rem;
 }
 .live-table tr:hover .player-cell { background: #f5f7fb; }
 .p-num { color: var(--muted); font-size: .78rem; }
 .pts-cell { font-weight: 800; font-size: 1.05rem; color: var(--bsc-blue); min-width: 38px;
             font-family: 'Barlow Condensed', system-ui, sans-serif; }
+
+/* ── Pin button ──────────────────────────────────────────────────────────── */
+.pin-btn {
+  flex-shrink: 0; background: none; border: none; cursor: pointer;
+  font-size: 1rem; line-height: 1; padding: .1rem .15rem;
+  color: var(--muted); transition: color .15s, transform .1s;
+  touch-action: manipulation;
+}
+.pin-btn:hover { color: var(--bsc-yellow); }
+.pin-btn.pinned { color: var(--bsc-yellow); }
+.player-main-row.pinned-row > td { background: #fffbe6; }
+.player-main-row.pinned-row:hover > td { background: #fff5b8; }
+
+/* ── Player name — tappable expand trigger on mobile ─────────────────────── */
+.player-name-expand { cursor: pointer; }
+.player-main-row.expanded > .player-cell { color: var(--bsc-blue); font-weight: 600; }
+.player-main-row.expanded > td { background: #eef2ff !important; }
 
 .stat-btn {
   width: 100%; min-width: 36px; height: 36px; border: none; border-radius: 6px;
@@ -255,6 +273,28 @@ body.login-page {
 .stat-btn:active { transform: scale(.92); }
 .stat-btn.has-val { background: #fffacc; color: var(--bsc-blue); }
 .stat-btn.flash { background: var(--bsc-yellow) !important; color: var(--bsc-blue); }
+
+/* ── Accordion row ───────────────────────────────────────────────────────── */
+.accord-row td { padding: 0; border-bottom: 2px solid var(--bsc-yellow); }
+.accord-cell { padding: .6rem !important; background: #f8f9ff !important; }
+.accord-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: .4rem;
+}
+.accord-btn {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 58px; border-radius: 8px; border: none;
+  background: #f1f3f5; color: var(--text);
+  font-family: 'Barlow Condensed', system-ui, sans-serif;
+  cursor: pointer; transition: background .1s, transform .08s; touch-action: manipulation;
+  width: 100%; min-width: 0;
+}
+.accord-btn:active { transform: scale(.94); }
+.accord-btn.has-val { background: #fffacc; color: var(--bsc-blue); }
+.accord-btn.flash { background: var(--bsc-yellow) !important; color: var(--bsc-blue); }
+.accord-label { font-size: .72rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; line-height: 1; }
+.accord-count { font-size: 1.2rem; font-weight: 800; line-height: 1.1; }
 
 /* ── Summary ─────────────────────────────────────────────────────────────── */
 .summary-actions { display: flex; gap: .6rem; margin-bottom: 1rem; flex-wrap: wrap; }
@@ -389,8 +429,28 @@ select:focus { outline: none; border-color: var(--bsc-yellow); box-shadow: 0 0 0
 
   /* Stat buttons slightly smaller */
   .stat-btn { min-width: 30px; height: 34px; font-size: .78rem; }
-  .player-cell { font-size: .8rem; padding: .35rem .5rem !important; min-width: 90px; }
-  .live-table th.player-col { min-width: 90px; }
+  .player-cell { font-size: .9rem; padding: .5rem .6rem !important; min-width: 0; }
+  .live-table th.player-col { min-width: 0; }
+
+  /* Mobile live table: hide stat columns, show only player + PTS */
+  .live-table-wrap { overflow-x: visible; }
+  .live-table { min-width: 0; }
+  .live-table th.stat-col { display: none; }
+  .live-table td.stat-cell { display: none; }
+  /* PTS column stays visible but compact */
+  .live-table th.pts-col { min-width: 48px; font-size: .85rem; }
+  .pts-cell { min-width: 44px; font-size: 1.1rem; }
+
+  /* Expanded accordion row fills full width */
+  .accord-row.hidden { display: none; }
+  .accord-row { display: table-row; }
+  .accord-grid { grid-template-columns: repeat(5, 1fr); gap: .35rem; }
+  .accord-btn { height: 62px; }
+  .accord-label { font-size: .7rem; }
+  .accord-count { font-size: 1.25rem; }
+
+  /* Player name expand tap area — bigger */
+  .player-name-expand { padding: .25rem 0; display: inline-block; }
 
   /* Modals full-width with margin */
   .modal-box { margin: .75rem; max-width: calc(100% - 1.5rem); }

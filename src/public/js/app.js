@@ -49,29 +49,36 @@
   connect();
 })();
 
+/** Update all stat buttons (table row + accordion) for a player. */
+function updateStatButtons(pid, counts) {
+  Object.keys(counts).forEach(st => {
+    // Desktop table button
+    const tb = document.querySelector(`.stat-btn:not(.accord-btn)[data-player="${pid}"][data-stat="${st}"]`);
+    if (tb) {
+      tb.textContent = counts[st] > 0 ? counts[st] : '+';
+      tb.classList.toggle('has-val', counts[st] > 0);
+    }
+    // Accordion button
+    const ab = document.querySelector(`.accord-btn[data-player="${pid}"][data-stat="${st}"]`);
+    if (ab) {
+      const countEl = ab.querySelector('.accord-count');
+      if (countEl) countEl.textContent = counts[st] > 0 ? counts[st] : '+';
+      ab.classList.toggle('has-val', counts[st] > 0);
+    }
+  });
+}
+
 /** Apply a stat/player update to the DOM (used by both local tap AND SSE). */
 function applyPlayerUpdate(data) {
-  const counts = data.counts || {};
-  Object.keys(counts).forEach(st => {
-    const b = document.querySelector(`.stat-btn[data-player="${data.player_id}"][data-stat="${st}"]`);
-    if (!b) return;
-    b.textContent = counts[st] > 0 ? counts[st] : '+';
-    b.classList.toggle('has-val', counts[st] > 0);
-  });
+  updateStatButtons(data.player_id, data.counts || {});
   const ptsCell = document.getElementById(`pts-${data.player_id}`);
   if (ptsCell) ptsCell.textContent = data.points;
 }
 
 /** Apply an undo update to the DOM. */
 function applyUndoUpdate(data) {
-  const counts = data.counts || {};
-  const pid    = data.undone_player_id;
-  Object.keys(counts).forEach(st => {
-    const b = document.querySelector(`.stat-btn[data-player="${pid}"][data-stat="${st}"]`);
-    if (!b) return;
-    b.textContent = counts[st] > 0 ? counts[st] : '+';
-    b.classList.toggle('has-val', counts[st] > 0);
-  });
+  const pid = data.undone_player_id;
+  updateStatButtons(pid, data.counts || {});
   const ptsCell = document.getElementById(`pts-${pid}`);
   if (ptsCell) ptsCell.textContent = data.points;
 
@@ -148,6 +155,131 @@ async function undoLast(matchId) {
     console.error(err);
   }
 }
+
+/* ── Accordion expand/collapse (mobile live match) ───────────────────────── */
+(function initAccordion() {
+  const tbody = document.getElementById('live-tbody');
+  if (!tbody) return;
+
+  let openPlayerId = null;
+
+  function closeAccordion(pid) {
+    const row = document.getElementById(`accord-row-${pid}`);
+    const mainRow = document.getElementById(`player-row-${pid}`);
+    if (row) row.classList.add('hidden');
+    if (mainRow) mainRow.classList.remove('expanded');
+    openPlayerId = null;
+  }
+
+  function openAccordion(pid) {
+    if (openPlayerId !== null && openPlayerId !== pid) {
+      closeAccordion(openPlayerId);
+    }
+    const row = document.getElementById(`accord-row-${pid}`);
+    const mainRow = document.getElementById(`player-row-${pid}`);
+    if (!row) return;
+    row.classList.remove('hidden');
+    if (mainRow) mainRow.classList.add('expanded');
+    openPlayerId = pid;
+  }
+
+  tbody.addEventListener('click', e => {
+    // Don't trigger accordion when tapping stat buttons, pin button, or undo
+    if (e.target.closest('.stat-btn') || e.target.closest('.pin-btn')) return;
+
+    const nameEl = e.target.closest('.player-name-expand');
+    if (!nameEl) return;
+
+    const pid = parseInt(nameEl.dataset.playerId, 10);
+    if (openPlayerId === pid) {
+      closeAccordion(pid);
+    } else {
+      openAccordion(pid);
+    }
+  });
+
+  // Expose so pin re-sort can keep accordion state
+  window._accordionOpen = () => openPlayerId;
+  window._accordionClose = closeAccordion;
+})();
+
+/* ── Pin player to top (localStorage per device) ─────────────────────────── */
+(function initPinPlayers() {
+  const tbody = document.getElementById('live-tbody');
+  if (!tbody) return;
+
+  const matchId = window._matchId;
+  const STORE_KEY = matchId ? `bsc_pin_${matchId}` : 'bsc_pin_global';
+
+  // Load pinned set from localStorage
+  function loadPinned() {
+    try { return new Set(JSON.parse(localStorage.getItem(STORE_KEY) || '[]')); }
+    catch (_) { return new Set(); }
+  }
+  function savePinned(set) {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify([...set])); } catch (_) {}
+  }
+
+  let pinned = loadPinned();
+
+  // Apply pinned state to all pin buttons and rows
+  function applyPinState() {
+    document.querySelectorAll('.pin-btn').forEach(btn => {
+      const pid = String(btn.dataset.playerId);
+      const isPinned = pinned.has(pid);
+      btn.textContent = isPinned ? '★' : '☆';
+      btn.classList.toggle('pinned', isPinned);
+      const mainRow = document.getElementById(`player-row-${pid}`);
+      if (mainRow) mainRow.classList.toggle('pinned-row', isPinned);
+    });
+  }
+
+  // Re-sort tbody: pinned rows first (preserve server order within each group)
+  function sortRows() {
+    const allMainRows = [...tbody.querySelectorAll('.player-main-row')];
+    const pinnedRows  = allMainRows.filter(r => pinned.has(String(r.dataset.playerId)));
+    const otherRows   = allMainRows.filter(r => !pinned.has(String(r.dataset.playerId)));
+
+    // For each main row, also grab its accordion row (immediately follows it)
+    function getAccordRow(mainRow) {
+      const pid = mainRow.dataset.playerId;
+      return document.getElementById(`accord-row-${pid}`);
+    }
+
+    // Re-insert in order: pinned first, then rest
+    [...pinnedRows, ...otherRows].forEach(mainRow => {
+      tbody.appendChild(mainRow);
+      const acc = getAccordRow(mainRow);
+      if (acc) tbody.appendChild(acc);
+    });
+  }
+
+  // Initial render
+  applyPinState();
+  sortRows();
+
+  // Handle pin button clicks
+  tbody.addEventListener('click', e => {
+    const btn = e.target.closest('.pin-btn');
+    if (!btn) return;
+
+    const pid = String(btn.dataset.playerId);
+
+    // Close accordion for this player before re-sorting if it's open
+    if (window._accordionClose && window._accordionOpen && window._accordionOpen() === parseInt(pid, 10)) {
+      window._accordionClose(parseInt(pid, 10));
+    }
+
+    if (pinned.has(pid)) {
+      pinned.delete(pid);
+    } else {
+      pinned.add(pid);
+    }
+    savePinned(pinned);
+    applyPinState();
+    sortRows();
+  });
+})();
 
 /* ── Admin tab switching ─────────────────────────────────────────────────── */
 (function initAdminTabs() {
