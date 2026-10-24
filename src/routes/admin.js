@@ -100,14 +100,18 @@ router.get('/', (req, res) => {
 
     const seasonBlocks = groupSeasons.map(s => {
       const matches = db.getMatchesBySeason(s.id);
-      const matchRows = matches.map(m => `
+      const matchRows = matches.map(m => {
+        const typeBadge = `<span class="badge badge-type badge-type-${m.match_type || 'league'}">${t('match_type_' + (m.match_type || 'league'))}</span>`;
+        const tournLabel = (m.match_type === 'tournament' && m.tournament_name) ? ` · ${esc(m.tournament_name)}` : '';
+        return `
         <tr>
           <td>${m.match_date}</td>
           <td>${esc(m.opponent)}</td>
           <td>${esc(m.location)}</td>
+          <td>${typeBadge}${tournLabel}</td>
           <td><span class="badge ${m.status === 'closed' ? 'badge-red' : 'badge-green'}">${m.status === 'closed' ? `🔒 ${t('closed')}` : t('open')}</span></td>
           <td>
-            <button class="btn btn-sm" onclick="openEditMatch(${m.id},'${esc(m.opponent)}','${m.match_date}','${esc(m.location)}')">${t('edit')}</button>
+            <button class="btn btn-sm" onclick="openEditMatch(${m.id},'${esc(m.opponent)}','${m.match_date}','${esc(m.location)}','${m.match_type || 'league'}','${esc(m.tournament_name || '')}')">${t('edit')}</button>
             ${m.status === 'closed'
               ? `<form method="POST" action="/match/${m.id}/reopen?tab=seasons" style="display:inline"><button class="btn btn-sm btn-primary">${t('reopen')}</button></form>`
               : `<form method="POST" action="/match/${m.id}/close?tab=seasons" style="display:inline" onsubmit="return confirm('${t('confirm_close_match')}')"><button class="btn btn-sm btn-warning">${t('close_match')}</button></form>`
@@ -116,7 +120,8 @@ router.get('/', (req, res) => {
               <button class="btn btn-sm btn-danger">${t('delete')}</button>
             </form>
           </td>
-        </tr>`).join('');
+        </tr>`;
+      }).join('');
 
       return `
       <div class="season-block">
@@ -132,8 +137,8 @@ router.get('/', (req, res) => {
         </div>
         <div class="table-wrap">
         <table class="data-table">
-          <thead><tr><th>${t('date')}</th><th>${t('opponent')}</th><th>${t('location')}</th><th>${t('status')}</th><th>${t('actions')}</th></tr></thead>
-          <tbody>${matchRows || `<tr><td colspan="5" class="empty">${t('no_matches_admin')}</td></tr>`}</tbody>
+          <thead><tr><th>${t('date')}</th><th>${t('opponent')}</th><th>${t('location')}</th><th>${t('match_type')}</th><th>${t('status')}</th><th>${t('actions')}</th></tr></thead>
+          <tbody>${matchRows || `<tr><td colspan="6" class="empty">${t('no_matches_admin')}</td></tr>`}</tbody>
         </table>
         </div>
       </div>`;
@@ -257,6 +262,16 @@ router.get('/', (req, res) => {
         <label>${t('opponent')} <input type="text" name="opponent" id="match-opponent" required></label>
         <label>${t('date')} <input type="date" name="match_date" id="match-date" required></label>
         <label>${t('location')} <input type="text" name="location" id="match-location" placeholder="${t('location_placeholder')}"></label>
+        <label>${t('match_type')}
+          <select name="match_type" id="match-type">
+            <option value="league">${t('match_type_league')}</option>
+            <option value="tournament">${t('match_type_tournament')}</option>
+            <option value="friendly">${t('match_type_friendly')}</option>
+          </select>
+        </label>
+        <label id="tournament-name-wrap" style="display:none">${t('tournament_name')}
+          <input type="text" name="tournament_name" id="match-tournament-name" placeholder="${t('tournament_name_placeholder')}">
+        </label>
         <div class="modal-actions">
           <button type="submit" class="btn btn-primary">${t('save')}</button>
           <button type="button" class="btn" onclick="closeModal('modal-match')">${t('cancel')}</button>
@@ -331,13 +346,13 @@ router.post('/season/:id/delete', (req, res) => {
 
 // ── Matches ───────────────────────────────────────────────────────────────────
 router.post('/match/add', (req, res) => {
-  const { season_id, opponent, match_date, location } = req.body;
-  db.insertMatch(season_id, opponent.trim(), match_date, (location || '').trim());
+  const { season_id, opponent, match_date, location, match_type, tournament_name } = req.body;
+  db.insertMatch(season_id, opponent.trim(), match_date, (location || '').trim(), match_type, (tournament_name || '').trim());
   adminRedirect(res, req, 'seasons');
 });
 router.post('/match/:id/edit', (req, res) => {
-  const { opponent, match_date, location } = req.body;
-  db.updateMatch(req.params.id, opponent.trim(), match_date, (location || '').trim());
+  const { opponent, match_date, location, match_type, tournament_name } = req.body;
+  db.updateMatch(req.params.id, opponent.trim(), match_date, (location || '').trim(), match_type, (tournament_name || '').trim());
   adminRedirect(res, req, 'seasons');
 });
 router.post('/match/:id/delete', (req, res) => {

@@ -43,6 +43,8 @@ router.get('/', (req, res) => {
       const statusBadge = isClosed
         ? `<span class="badge badge-red">🔒 ${t('closed')}</span>`
         : `<span class="badge badge-green">${t('open')}</span>`;
+      const typeBadge = `<span class="badge badge-type badge-type-${m.match_type || 'league'}">${t('match_type_' + (m.match_type || 'league'))}</span>`;
+      const tournLabel = (m.match_type === 'tournament' && m.tournament_name) ? ` <span class="match-tourn-name">${esc(m.tournament_name)}</span>` : '';
       const liveBtn = isClosed
         ? `<a href="/match/${m.id}" class="btn btn-sm btn-outline">${t('view')}</a>`
         : `<a href="/match/${m.id}" class="btn btn-sm">${t('live')}</a>`;
@@ -51,6 +53,7 @@ router.get('/', (req, res) => {
         <td>${m.match_date}</td>
         <td>${esc(m.opponent)}</td>
         <td>${esc(m.location)}</td>
+        <td>${typeBadge}${tournLabel}</td>
         <td>${statusBadge}</td>
         <td class="td-actions">
           ${liveBtn}
@@ -70,8 +73,8 @@ router.get('/', (req, res) => {
       </div>
       <div class="table-wrap">
       <table class="data-table">
-        <thead><tr><th>${t('date')}</th><th>${t('opponent')}</th><th>${t('location')}</th><th>${t('status')}</th><th>${t('actions')}</th></tr></thead>
-        <tbody>${matchRows || `<tr><td colspan="5" class="empty">${t('no_matches')}</td></tr>`}</tbody>
+        <thead><tr><th>${t('date')}</th><th>${t('opponent')}</th><th>${t('location')}</th><th>${t('match_type')}</th><th>${t('status')}</th><th>${t('actions')}</th></tr></thead>
+        <tbody>${matchRows || `<tr><td colspan="6" class="empty">${t('no_matches')}</td></tr>`}</tbody>
       </table>
       </div>
     </div>`;

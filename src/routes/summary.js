@@ -101,10 +101,57 @@ router.get('/season/:id/summary', (req, res) => {
   if (!season) return res.status(404).send('Season not found');
 
   const players  = db.getPlayers();
-  const statsRaw = db.getStatsBySeasonRaw(season.id);
-  const statMap  = buildStatMap(statsRaw, players);
   const matches  = db.getMatchesBySeason(season.id);
-  const table    = buildSummaryTable(statMap, players, t);
+  const statsRaw = db.getStatsBySeasonRaw(season.id);
+
+  // Build a stat map per match type group
+  const TYPES = ['league', 'tournament', 'friendly'];
+  const typeLabels = {
+    league:     t('match_type_league'),
+    tournament: t('match_type_tournament'),
+    friendly:   t('match_type_friendly'),
+  };
+
+  // Group match IDs by type
+  const matchIdsByType = { league: new Set(), tournament: new Set(), friendly: new Set() };
+  const tournamentNames = {}; // matchId -> tournament_name
+  matches.forEach(m => {
+    const mt = m.match_type || 'league';
+    if (matchIdsByType[mt]) matchIdsByType[mt].add(m.id);
+    if (mt === 'tournament' && m.tournament_name) tournamentNames[m.id] = m.tournament_name;
+  });
+
+  // For each type that has matches, build a section
+  const sections = TYPES.map(mt => {
+    const ids = matchIdsByType[mt];
+    if (ids.size === 0) return '';
+
+    const typeStats = statsRaw.filter(s => ids.has(s.match_id));
+    const typeMap   = buildStatMap(typeStats, players);
+    const mCount    = ids.size;
+    const mLabel    = mCount === 1 ? t('matches_count_one') : t('matches_count_other');
+
+    // For tournaments, list tournament names
+    let subLabel = `${mCount} ${mLabel}`;
+    if (mt === 'tournament') {
+      const names = [...new Set(Object.values(tournamentNames))].filter(Boolean);
+      if (names.length) subLabel += ` · ${names.map(esc).join(', ')}`;
+    }
+
+    const table = buildSummaryTable(typeMap, players, t);
+    return `
+    <div class="summary-section">
+      <div class="summary-section-header">
+        <span class="badge badge-type badge-type-${mt}">${typeLabels[mt]}</span>
+        <span class="summary-section-meta">${subLabel}</span>
+      </div>
+      ${table}
+    </div>`;
+  }).join('');
+
+  // Overall combined section
+  const allMap   = buildStatMap(statsRaw, players);
+  const allTable = buildSummaryTable(allMap, players, t);
   const mCount   = matches.length;
   const mLabel   = mCount === 1 ? t('matches_count_one') : t('matches_count_other');
 
@@ -117,7 +164,15 @@ router.get('/season/:id/summary', (req, res) => {
     <a href="/dashboard" class="btn">${t('back_to_dashboard')}</a>
     <a href="/season/${season.id}/export.csv" class="btn btn-outline">${t('export_csv')}</a>
   </div>
-  ${table}`;
+  ${TYPES.filter(mt => matchIdsByType[mt].size > 0).length > 1 ? `
+    <div class="summary-section">
+      <div class="summary-section-header">
+        <span class="summary-section-title">${t('summary_all')}</span>
+        <span class="summary-section-meta">${mCount} ${mLabel}</span>
+      </div>
+      ${allTable}
+    </div>` : ''}
+  ${sections}`;
 
   res.send(layout(`${t('season_summary_title')}: ${season.name}`, body, { activePage: 'dashboard', lang, t }));
 });

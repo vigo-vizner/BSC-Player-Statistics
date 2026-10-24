@@ -62,9 +62,9 @@ db.exec(`
 const migrations = [
   "ALTER TABLE matches ADD COLUMN status TEXT NOT NULL DEFAULT 'open'",
   "ALTER TABLE seasons ADD COLUMN category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL",
-  // players.category_id existed in the old single-category model — we keep it
-  // in the schema via migration but no longer use it (junction table takes over)
   "ALTER TABLE players ADD COLUMN category_id INTEGER",
+  "ALTER TABLE matches ADD COLUMN match_type TEXT NOT NULL DEFAULT 'league'",
+  "ALTER TABLE matches ADD COLUMN tournament_name TEXT NOT NULL DEFAULT ''",
 ];
 for (const sql of migrations) {
   try { db.prepare(sql).run(); } catch (_) { /* column already exists */ }
@@ -159,8 +159,12 @@ const getMatch = (id) => db.prepare(`
   JOIN seasons s ON s.id = m.season_id
   LEFT JOIN categories c ON c.id = s.category_id
   WHERE m.id = ?`).get(id);
-const insertMatch  = (seasonId, opponent, date, location) => db.prepare('INSERT INTO matches (season_id,opponent,match_date,location) VALUES (?,?,?,?)').run(seasonId, opponent, date, location);
-const updateMatch  = (id, opponent, date, location) => db.prepare('UPDATE matches SET opponent=?,match_date=?,location=? WHERE id=?').run(opponent, date, location, id);
+const insertMatch  = (seasonId, opponent, date, location, matchType, tournamentName) =>
+  db.prepare('INSERT INTO matches (season_id,opponent,match_date,location,match_type,tournament_name) VALUES (?,?,?,?,?,?)')
+    .run(seasonId, opponent, date, location, matchType || 'league', tournamentName || '');
+const updateMatch  = (id, opponent, date, location, matchType, tournamentName) =>
+  db.prepare('UPDATE matches SET opponent=?,match_date=?,location=?,match_type=?,tournament_name=? WHERE id=?')
+    .run(opponent, date, location, matchType || 'league', tournamentName || '', id);
 const deleteMatch  = (id) => db.prepare('DELETE FROM matches WHERE id=?').run(id);
 const closeMatch   = (id) => db.prepare("UPDATE matches SET status='closed' WHERE id=?").run(id);
 const reopenMatch  = (id) => db.prepare("UPDATE matches SET status='open' WHERE id=?").run(id);

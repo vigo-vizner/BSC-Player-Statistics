@@ -445,6 +445,17 @@ function openEditSeason(id, name, categoryId) {
   openModal('modal-season');
 }
 
+function _setMatchType(type) {
+  document.getElementById('match-type').value = type || 'league';
+  document.getElementById('tournament-name-wrap').style.display =
+    (type === 'tournament') ? 'flex' : 'none';
+}
+
+// Show/hide tournament name field when type select changes
+document.addEventListener('change', e => {
+  if (e.target.id === 'match-type') _setMatchType(e.target.value);
+});
+
 function openAddMatch(seasonId) {
   document.getElementById('form-match').action = '/admin/match/add' + _tabQ();
   document.getElementById('match-id').value = '';
@@ -452,14 +463,18 @@ function openAddMatch(seasonId) {
   document.getElementById('match-opponent').value = '';
   document.getElementById('match-date').valueAsDate = new Date();
   document.getElementById('match-location').value = '';
+  document.getElementById('match-tournament-name').value = '';
+  _setMatchType('league');
   openModal('modal-match');
 }
-function openEditMatch(id, opponent, date, location) {
+function openEditMatch(id, opponent, date, location, matchType, tournamentName) {
   document.getElementById('form-match').action = `/admin/match/${id}/edit` + _tabQ();
   document.getElementById('match-id').value = id;
   document.getElementById('match-opponent').value = opponent;
   document.getElementById('match-date').value = date;
   document.getElementById('match-location').value = location;
+  document.getElementById('match-tournament-name').value = tournamentName || '';
+  _setMatchType(matchType || 'league');
   openModal('modal-match');
 }
 
