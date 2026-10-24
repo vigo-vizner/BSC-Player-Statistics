@@ -161,6 +161,8 @@ body.login-page {
   background: var(--bsc-blue);
 }
 .season-header h2, .season-header h3 { font-size: 1.1rem; color: #fff; }
+.season-header .btn { color: #fff; border-color: rgba(255,255,255,.45); background: rgba(255,255,255,.08); }
+.season-header .btn:hover { background: rgba(255,255,255,.18); border-color: rgba(255,255,255,.7); text-decoration: none; }
 
 /* ── Data table — scrollable wrapper on mobile ───────────────────────────── */
 .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
