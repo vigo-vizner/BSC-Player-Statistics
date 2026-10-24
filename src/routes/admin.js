@@ -9,6 +9,8 @@ function esc(str) {
 
 // ── GET /admin ────────────────────────────────────────────────────────────────
 router.get('/', (req, res) => {
+  const t    = req.t;
+  const lang = req.lang;
   const players = db.getPlayers();
   const seasons = db.getSeasons();
 
@@ -16,9 +18,9 @@ router.get('/', (req, res) => {
     <tr>
       <td>#${esc(p.number)}</td>
       <td>${esc(p.name)}</td>
-      <td><span class="badge ${p.active ? 'badge-green' : 'badge-gray'}">${p.active ? 'Active' : 'Inactive'}</span></td>
+      <td><span class="badge ${p.active ? 'badge-green' : 'badge-gray'}">${p.active ? t('active') : t('inactive')}</span></td>
       <td>
-        <button class="btn btn-sm" onclick="openEditPlayer(${p.id},'${esc(p.name)}','${esc(p.number)}',${p.active})">Edit</button>
+        <button class="btn btn-sm" onclick="openEditPlayer(${p.id},'${esc(p.name)}','${esc(p.number)}',${p.active})">${t('edit')}</button>
       </td>
     </tr>`).join('');
 
@@ -29,15 +31,15 @@ router.get('/', (req, res) => {
         <td>${m.match_date}</td>
         <td>${esc(m.opponent)}</td>
         <td>${esc(m.location)}</td>
-        <td><span class="badge ${m.status === 'closed' ? 'badge-red' : 'badge-green'}">${m.status === 'closed' ? '🔒 Closed' : 'Open'}</span></td>
+        <td><span class="badge ${m.status === 'closed' ? 'badge-red' : 'badge-green'}">${m.status === 'closed' ? `🔒 ${t('closed')}` : t('open')}</span></td>
         <td>
-          <button class="btn btn-sm" onclick="openEditMatch(${m.id},'${esc(m.opponent)}','${m.match_date}','${esc(m.location)}')">Edit</button>
+          <button class="btn btn-sm" onclick="openEditMatch(${m.id},'${esc(m.opponent)}','${m.match_date}','${esc(m.location)}')">${t('edit')}</button>
           ${m.status === 'closed'
-            ? `<form method="POST" action="/match/${m.id}/reopen" style="display:inline"><button class="btn btn-sm btn-primary">🔓 Reopen</button></form>`
-            : `<form method="POST" action="/match/${m.id}/close" style="display:inline" onsubmit="return confirm('Close this match?')"><button class="btn btn-sm btn-warning">🔒 Close</button></form>`
+            ? `<form method="POST" action="/match/${m.id}/reopen" style="display:inline"><button class="btn btn-sm btn-primary">${t('reopen')}</button></form>`
+            : `<form method="POST" action="/match/${m.id}/close" style="display:inline" onsubmit="return confirm('${t('confirm_close_match')}')"><button class="btn btn-sm btn-warning">${t('close_match')}</button></form>`
           }
-          <form method="POST" action="/admin/match/${m.id}/delete" style="display:inline" onsubmit="return confirm('Delete this match and all its stats?')">
-            <button class="btn btn-sm btn-danger">Delete</button>
+          <form method="POST" action="/admin/match/${m.id}/delete" style="display:inline" onsubmit="return confirm('${t('confirm_delete_match')}')">
+            <button class="btn btn-sm btn-danger">${t('delete')}</button>
           </form>
         </td>
       </tr>`).join('');
@@ -47,58 +49,58 @@ router.get('/', (req, res) => {
       <div class="season-header">
         <h3>${esc(s.name)}</h3>
         <div class="btn-group">
-          <button class="btn btn-sm" onclick="openEditSeason(${s.id},'${esc(s.name)}')">Edit Season</button>
-          <form method="POST" action="/admin/season/${s.id}/delete" style="display:inline" onsubmit="return confirm('Delete this season and ALL its matches and stats?')">
-            <button class="btn btn-sm btn-danger">Delete Season</button>
+          <button class="btn btn-sm" onclick="openEditSeason(${s.id},'${esc(s.name)}')">${t('edit_season')}</button>
+          <form method="POST" action="/admin/season/${s.id}/delete" style="display:inline" onsubmit="return confirm('${t('confirm_delete_season')}')">
+            <button class="btn btn-sm btn-danger">${t('delete_season')}</button>
           </form>
-          <button class="btn btn-sm btn-primary" onclick="openAddMatch(${s.id})">+ Match</button>
+          <button class="btn btn-sm btn-primary" onclick="openAddMatch(${s.id})">${t('add_match')}</button>
         </div>
       </div>
       <table class="data-table">
-        <thead><tr><th>Date</th><th>Opponent</th><th>Location</th><th>Status</th><th>Actions</th></tr></thead>
-        <tbody>${matchRows || '<tr><td colspan="5" class="empty">No matches</td></tr>'}</tbody>
+        <thead><tr><th>${t('date')}</th><th>${t('opponent')}</th><th>${t('location')}</th><th>${t('status')}</th><th>${t('actions')}</th></tr></thead>
+        <tbody>${matchRows || `<tr><td colspan="5" class="empty">${t('no_matches_admin')}</td></tr>`}</tbody>
       </table>
     </div>`;
   }).join('');
 
   const body = `
   <div class="page-header">
-    <h1>Admin</h1>
+    <h1>${t('admin')}</h1>
   </div>
 
   <section class="admin-section">
     <div class="section-header">
-      <h2>Players</h2>
-      <button class="btn btn-primary" onclick="openAddPlayer()">+ Player</button>
+      <h2>${t('players')}</h2>
+      <button class="btn btn-primary" onclick="openAddPlayer()">${t('add_player')}</button>
     </div>
     <table class="data-table">
-      <thead><tr><th>#</th><th>Name</th><th>Status</th><th>Actions</th></tr></thead>
-      <tbody>${playerRows || '<tr><td colspan="4" class="empty">No players yet</td></tr>'}</tbody>
+      <thead><tr><th>${t('jersey')}</th><th>${t('name')}</th><th>${t('status')}</th><th>${t('actions')}</th></tr></thead>
+      <tbody>${playerRows || `<tr><td colspan="4" class="empty">${t('no_data')}</td></tr>`}</tbody>
     </table>
   </section>
 
   <section class="admin-section">
     <div class="section-header">
-      <h2>Seasons &amp; Matches</h2>
-      <button class="btn btn-primary" onclick="openAddSeason()">+ Season</button>
+      <h2>${t('seasons_matches')}</h2>
+      <button class="btn btn-primary" onclick="openAddSeason()">${t('add_season')}</button>
     </div>
-    ${seasons.length === 0 ? '<p class="empty-state">No seasons yet.</p>' : seasonBlocks}
+    ${seasons.length === 0 ? `<p class="empty-state">${t('no_seasons_admin')}</p>` : seasonBlocks}
   </section>
 
   <!-- Player Modal -->
   <div id="modal-player" class="modal hidden">
     <div class="modal-box">
-      <h3 id="modal-player-title">Add Player</h3>
+      <h3 id="modal-player-title">${t('add_player_title')}</h3>
       <form method="POST" id="form-player">
         <input type="hidden" name="id" id="player-id">
-        <label>Name <input type="text" name="name" id="player-name" required></label>
-        <label>Jersey # <input type="text" name="number" id="player-number"></label>
+        <label>${t('name')} <input type="text" name="name" id="player-name" required></label>
+        <label>${t('jersey_number')} <input type="text" name="number" id="player-number"></label>
         <label id="player-active-wrap" style="display:none">
-          Active <input type="checkbox" name="active" id="player-active" value="1">
+          ${t('active')} <input type="checkbox" name="active" id="player-active" value="1">
         </label>
         <div class="modal-actions">
-          <button type="submit" class="btn btn-primary">Save</button>
-          <button type="button" class="btn" onclick="closeModal('modal-player')">Cancel</button>
+          <button type="submit" class="btn btn-primary">${t('save')}</button>
+          <button type="button" class="btn" onclick="closeModal('modal-player')">${t('cancel')}</button>
         </div>
       </form>
     </div>
@@ -107,13 +109,13 @@ router.get('/', (req, res) => {
   <!-- Season Modal -->
   <div id="modal-season" class="modal hidden">
     <div class="modal-box">
-      <h3 id="modal-season-title">Add Season</h3>
+      <h3 id="modal-season-title">${t('add_season_title')}</h3>
       <form method="POST" id="form-season">
         <input type="hidden" name="id" id="season-id">
-        <label>Season Name <input type="text" name="name" id="season-name" required placeholder="e.g. 2025/26"></label>
+        <label>${t('season_name')} <input type="text" name="name" id="season-name" required placeholder="${t('season_placeholder')}"></label>
         <div class="modal-actions">
-          <button type="submit" class="btn btn-primary">Save</button>
-          <button type="button" class="btn" onclick="closeModal('modal-season')">Cancel</button>
+          <button type="submit" class="btn btn-primary">${t('save')}</button>
+          <button type="button" class="btn" onclick="closeModal('modal-season')">${t('cancel')}</button>
         </div>
       </form>
     </div>
@@ -122,23 +124,23 @@ router.get('/', (req, res) => {
   <!-- Match Modal -->
   <div id="modal-match" class="modal hidden">
     <div class="modal-box">
-      <h3 id="modal-match-title">Add Match</h3>
+      <h3 id="modal-match-title">${t('add_match_title')}</h3>
       <form method="POST" id="form-match">
         <input type="hidden" name="id" id="match-id">
         <input type="hidden" name="season_id" id="match-season-id">
-        <label>Opponent <input type="text" name="opponent" id="match-opponent" required></label>
-        <label>Date <input type="date" name="match_date" id="match-date" required></label>
-        <label>Location <input type="text" name="location" id="match-location" placeholder="Home / Away / Arena name"></label>
+        <label>${t('opponent')} <input type="text" name="opponent" id="match-opponent" required></label>
+        <label>${t('date')} <input type="date" name="match_date" id="match-date" required></label>
+        <label>${t('location')} <input type="text" name="location" id="match-location" placeholder="${t('location_placeholder')}"></label>
         <div class="modal-actions">
-          <button type="submit" class="btn btn-primary">Save</button>
-          <button type="button" class="btn" onclick="closeModal('modal-match')">Cancel</button>
+          <button type="submit" class="btn btn-primary">${t('save')}</button>
+          <button type="button" class="btn" onclick="closeModal('modal-match')">${t('cancel')}</button>
         </div>
       </form>
     </div>
   </div>
   <div class="modal-overlay hidden" id="modal-overlay" onclick="closeAllModals()"></div>`;
 
-  res.send(layout('Admin', body, { activePage: 'admin' }));
+  res.send(layout(t('admin'), body, { activePage: 'admin', lang, t }));
 });
 
 // ── Players ───────────────────────────────────────────────────────────────────

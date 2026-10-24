@@ -6,6 +6,7 @@ const fs           = require('fs');
 const SQLiteStore  = require('connect-sqlite3')(session);
 
 const { requireAuth } = require('./middleware/auth');
+const { getT }        = require('./i18n');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -25,6 +26,22 @@ app.use(session({
   saveUninitialized: false,
   cookie: { maxAge: 1000 * 60 * 60 * 12 }, // 12 h
 }));
+
+// ── i18n: attach t() to every request ────────────────────────────────────────
+app.use((req, res, next) => {
+  const lang = req.session.lang || 'en';
+  req.lang = lang;
+  req.t    = getT(lang);
+  next();
+});
+
+// ── Language toggle ───────────────────────────────────────────────────────────
+app.get('/lang/:code', (req, res) => {
+  const code = req.params.code;
+  if (['en', 'sk'].includes(code)) req.session.lang = code;
+  const back = req.headers.referer || '/dashboard';
+  res.redirect(back);
+});
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use('/login',    require('./routes/login'));

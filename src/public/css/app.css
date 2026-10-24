@@ -73,6 +73,14 @@ header nav a:hover, header nav a.active {
   font-weight: 600; letter-spacing: .03em; text-transform: uppercase;
 }
 .logout-btn:hover { color: var(--bsc-yellow); text-decoration: none; }
+.lang-toggle {
+  color: #fff; background: rgba(245,166,35,.2); border: 1px solid rgba(245,166,35,.4);
+  padding: .2rem .55rem; border-radius: var(--radius);
+  font-family: 'Barlow Condensed', system-ui, sans-serif;
+  font-size: .82rem; font-weight: 700; letter-spacing: .06em;
+  white-space: nowrap; transition: background .15s;
+}
+.lang-toggle:hover { background: rgba(245,166,35,.35); text-decoration: none; color: #fff; }
 
 /* ── Main layout ─────────────────────────────────────────────────────────── */
 main { max-width: 1200px; margin: 0 auto; padding: 1.25rem 1rem 3rem; }

@@ -3,16 +3,19 @@
  * Returns complete HTML strings — no template engine dependency.
  */
 
-function layout(title, body, { activePage = '' } = {}) {
+function layout(title, body, { activePage = '', lang = 'en', t = (k) => k } = {}) {
   const nav = [
-    { href: '/dashboard', label: 'Dashboard', key: 'dashboard' },
-    { href: '/admin',     label: 'Admin',     key: 'admin' },
+    { href: '/dashboard', label: t('nav_dashboard'), key: 'dashboard' },
+    { href: '/admin',     label: t('nav_admin'),     key: 'admin' },
   ].map(({ href, label, key }) =>
     `<a href="${href}" class="${activePage === key ? 'active' : ''}">${label}</a>`
   ).join('');
 
+  const otherLang = lang === 'en' ? 'sk' : 'en';
+  const langToggle = `<a href="/lang/${otherLang}" class="lang-toggle" title="Switch language">${otherLang.toUpperCase()}</a>`;
+
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${lang}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -24,10 +27,11 @@ function layout(title, body, { activePage = '' } = {}) {
     <div class="header-inner">
       <a href="/dashboard" style="display:flex;align-items:center;gap:.6rem;text-decoration:none;">
         <img src="/img/BSC_logo.jpg" alt="BSC Bratislava" class="logo-img">
-        <div class="logo-text">BSC Bratislava<span>Player Statistics</span></div>
+        <div class="logo-text">${t('app_name')}<span>${t('app_subtitle')}</span></div>
       </a>
       <nav>${nav}</nav>
-      <a href="/logout" class="logout-btn">Logout</a>
+      ${langToggle}
+      <a href="/logout" class="logout-btn">${t('logout')}</a>
     </div>
   </header>
   <main>${body}</main>
