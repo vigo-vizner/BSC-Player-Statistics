@@ -49,22 +49,29 @@
   connect();
 })();
 
-/** Update all stat buttons (table row + accordion) for a player. */
+/** Update all stat buttons (table row + accordion + edit controls) for a player. */
 function updateStatButtons(pid, counts) {
   Object.keys(counts).forEach(st => {
+    const n = counts[st] || 0;
+
     // Desktop table button
     const tb = document.querySelector(`.stat-btn:not(.accord-btn)[data-player="${pid}"][data-stat="${st}"]`);
     if (tb) {
-      tb.textContent = counts[st] > 0 ? counts[st] : '+';
-      tb.classList.toggle('has-val', counts[st] > 0);
+      tb.textContent = n > 0 ? n : '+';
+      tb.classList.toggle('has-val', n > 0);
     }
-    // Accordion button
+    // Accordion normal button
     const ab = document.querySelector(`.accord-btn[data-player="${pid}"][data-stat="${st}"]`);
     if (ab) {
       const countEl = ab.querySelector('.accord-count');
-      if (countEl) countEl.textContent = counts[st] > 0 ? counts[st] : '+';
-      ab.classList.toggle('has-val', counts[st] > 0);
+      if (countEl) countEl.textContent = n > 0 ? n : '+';
+      ab.classList.toggle('has-val', n > 0);
     }
+    // Edit-mode count display + minus button disabled state
+    const ec = document.getElementById(`edit-count-${pid}-${st}`);
+    if (ec) ec.textContent = n;
+    const minusBtn = document.querySelector(`.edit-btn-minus[data-player="${pid}"][data-stat="${st}"]`);
+    if (minusBtn) minusBtn.disabled = n === 0;
   });
 }
 
@@ -155,6 +162,63 @@ async function undoLast(matchId) {
     console.error(err);
   }
 }
+
+/* ── Edit mode toggle ────────────────────────────────────────────────────── */
+let _editMode = false;
+
+function toggleEditMode() {
+  _editMode = !_editMode;
+  const banner  = document.getElementById('edit-banner');
+  const editBtn = document.getElementById('edit-mode-btn');
+  const undoBar = document.getElementById('undo-bar');
+
+  if (banner)  banner.classList.toggle('hidden', !_editMode);
+  if (undoBar) undoBar.classList.toggle('hidden', _editMode);
+  if (editBtn) {
+    editBtn.classList.toggle('edit-active', _editMode);
+    // Label is set server-side via i18n; swap between edit/exit text
+    editBtn.textContent = _editMode
+      ? (editBtn.dataset.exitLabel || '✏️ Exit Edit')
+      : (editBtn.dataset.editLabel || '✏️ Edit');
+  }
+
+  // Switch accordion between normal and edit grids for any open player
+  document.querySelectorAll('.accord-normal').forEach(g => g.classList.toggle('hidden', _editMode));
+  document.querySelectorAll('.accord-edit').forEach(g => g.classList.toggle('hidden', !_editMode));
+}
+
+/* ── Edit mode −/+ buttons ───────────────────────────────────────────────── */
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.edit-btn');
+  if (!btn) return;
+
+  const matchId  = btn.dataset.match;
+  const playerId = btn.dataset.player;
+  const statType = btn.dataset.stat;
+  const isPlus   = btn.classList.contains('edit-btn-plus');
+  const endpoint = isPlus ? `/match/${matchId}/stat` : `/match/${matchId}/stat/remove`;
+
+  btn.disabled = true;
+
+  try {
+    const res  = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ player_id: playerId, stat_type: statType }),
+    });
+    const data = await res.json();
+    if (!data.ok) { showToast(data.message || 'Nothing to remove'); return; }
+
+    applyPlayerUpdate(data);
+    showToast(isPlus ? `+${escHtml(data.last_stat_label)} — ${escHtml(data.last_player_name)}` : 'Removed ✓');
+  } catch (err) {
+    showToast('Error — please retry', true);
+    console.error(err);
+  } finally {
+    // Re-enable unless count is now 0 (handled by updateStatButtons)
+    if (isPlus) btn.disabled = false;
+  }
+});
 
 /* ── Accordion expand/collapse (mobile live match) ───────────────────────── */
 (function initAccordion() {

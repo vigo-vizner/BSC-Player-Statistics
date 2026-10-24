@@ -72,13 +72,26 @@ router.get('/:id', (req, res) => {
       </td>`;
     }).join('');
 
-    // Accordion stat buttons for mobile (large grid, shown when row is expanded)
+    // Accordion: normal tap-to-add buttons
     const accordionBtns = isClosed ? '' : STAT_TYPES.map(st => {
       const count = statMap[p.id][st] || 0;
       return `<button class="stat-btn accord-btn${count > 0 ? ' has-val' : ''}" data-match="${match.id}" data-player="${p.id}" data-stat="${st}">
         <span class="accord-label">${t(STAT_KEYS[st])}</span>
         <span class="accord-count">${count > 0 ? count : '+'}</span>
       </button>`;
+    }).join('');
+
+    // Accordion: edit-mode −/count/+ controls
+    const accordionEditBtns = isClosed ? '' : STAT_TYPES.map(st => {
+      const count = statMap[p.id][st] || 0;
+      return `<div class="edit-stat-cell">
+        <span class="edit-stat-label">${t(STAT_KEYS[st])}</span>
+        <div class="edit-stat-controls">
+          <button class="edit-btn edit-btn-minus" data-match="${match.id}" data-player="${p.id}" data-stat="${st}" ${count === 0 ? 'disabled' : ''}>−</button>
+          <span class="edit-stat-count" id="edit-count-${p.id}-${st}">${count}</span>
+          <button class="edit-btn edit-btn-plus"  data-match="${match.id}" data-player="${p.id}" data-stat="${st}">+</button>
+        </div>
+      </div>`;
     }).join('');
 
     const pts       = totalPoints(statMap, p.id);
@@ -97,7 +110,8 @@ router.get('/:id', (req, res) => {
     </tr>
     ${!isClosed ? `<tr id="accord-row-${p.id}" class="accord-row hidden" data-player-id="${p.id}">
       <td colspan="${2 + STAT_TYPES.length}" class="accord-cell">
-        <div class="accord-grid">${accordionBtns}</div>
+        <div class="accord-grid accord-normal">${accordionBtns}</div>
+        <div class="accord-grid accord-edit hidden">${accordionEditBtns}</div>
       </td>
     </tr>` : ''}`;
   }).join('');
@@ -118,6 +132,8 @@ router.get('/:id', (req, res) => {
       <span id="undo-info">${undoInfo}</span>
       <button class="btn btn-warning" id="undo-btn" ${!lastStat ? 'disabled' : ''} onclick="undoLast(${match.id})">${t('undo')}</button>
     </div>
+    <button class="btn btn-outline" id="edit-mode-btn" onclick="toggleEditMode()"
+      data-edit-label="${esc(t('edit_mode'))}" data-exit-label="${esc(t('edit_mode_exit'))}">${t('edit_mode')}</button>
     <form method="POST" action="/match/${match.id}/close" onsubmit="return confirm('${t('confirm_close')}')">
       <button class="btn btn-danger">${t('close_match_btn')}</button>
     </form>`;
@@ -126,8 +142,12 @@ router.get('/:id', (req, res) => {
   const syncIndicator = isClosed ? '' :
     `<span id="sync-dot" class="sync-dot sync-dot--off" title="Live sync"></span>`;
 
+  const editBanner = isClosed ? '' :
+    `<div class="edit-banner hidden" id="edit-banner">${t('edit_mode_banner')}</div>`;
+
   const body = `
   ${closedBanner}
+  ${editBanner}
   <div class="match-header">
     <div>
       <h1>${t('vs')} ${esc(match.opponent)} ${syncIndicator}</h1>
@@ -205,6 +225,35 @@ router.post('/:id/stat', (req, res) => {
   // Broadcast to all OTHER devices watching this match
   sse.broadcast(match.id, 'stat', payload);
 
+  res.json({ ok: true, ...payload });
+});
+
+// ── POST /match/:id/stat/remove ──────────────────────────────────────────────
+router.post('/:id/stat/remove', (req, res) => {
+  const t = req.t;
+  const { player_id, stat_type } = req.body;
+  if (!STAT_TYPES.includes(stat_type)) return res.status(400).json({ error: 'invalid stat' });
+
+  const match = db.getMatch(req.params.id);
+  if (!match) return res.status(404).json({ error: 'match not found' });
+  if (match.status === 'closed') return res.status(403).json({ error: 'match is closed' });
+
+  // Delete the most recent occurrence of this stat for this player
+  const row = db.prepare(
+    'SELECT id FROM stats WHERE match_id=? AND player_id=? AND stat_type=? ORDER BY id DESC LIMIT 1'
+  ).get(match.id, player_id, stat_type);
+  if (!row) return res.json({ ok: false, message: 'Nothing to remove' });
+
+  db.deleteStat(row.id);
+
+  const stats   = db.getStatsByMatch(match.id);
+  const players = match.category_id ? db.getActivePlayersByCat(match.category_id) : db.getActivePlayers();
+  const statMap = buildStatMap(stats, players);
+  const pid     = parseInt(player_id, 10);
+  const lastStat = db.getLastStat(match.id);
+
+  const payload = buildPlayerPayload(t, match, players, statMap, pid, lastStat);
+  sse.broadcast(match.id, 'stat', payload);
   res.json({ ok: true, ...payload });
 });
 

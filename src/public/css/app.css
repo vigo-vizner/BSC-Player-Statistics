@@ -305,6 +305,53 @@ body.login-page {
 .accord-label { font-size: .72rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; line-height: 1; }
 .accord-count { font-size: 1.2rem; font-weight: 800; line-height: 1.1; }
 
+/* ── Edit mode banner ────────────────────────────────────────────────────── */
+.edit-banner {
+  background: #fffbeb; border: 1px solid #f59e0b; border-radius: var(--radius);
+  color: #92400e; font-size: .9rem; font-weight: 600;
+  padding: .6rem 1rem; margin-bottom: .75rem;
+  font-family: 'Barlow Condensed', system-ui, sans-serif;
+  letter-spacing: .02em;
+}
+
+/* ── Edit mode stat cells (accordion) ───────────────────────────────────── */
+.edit-stat-cell {
+  display: flex; flex-direction: column; align-items: center;
+  gap: .25rem; padding: .35rem .15rem;
+}
+.edit-stat-label {
+  font-family: 'Barlow Condensed', system-ui, sans-serif;
+  font-size: .7rem; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--muted);
+}
+.edit-stat-controls {
+  display: flex; align-items: center; gap: .3rem;
+}
+.edit-stat-count {
+  font-family: 'Barlow Condensed', system-ui, sans-serif;
+  font-size: 1.15rem; font-weight: 800; color: var(--bsc-blue);
+  min-width: 1.6rem; text-align: center;
+}
+.edit-btn {
+  width: 34px; height: 34px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text);
+  font-size: 1.1rem; font-weight: 700; line-height: 1;
+  cursor: pointer; touch-action: manipulation;
+  transition: background .1s, transform .08s;
+  display: flex; align-items: center; justify-content: center;
+}
+.edit-btn:active { transform: scale(.92); }
+.edit-btn:disabled { opacity: .35; cursor: default; }
+.edit-btn-minus { color: var(--red); border-color: #fecaca; }
+.edit-btn-minus:not(:disabled):hover { background: #fee2e2; }
+.edit-btn-plus  { color: #16a34a; border-color: #bbf7d0; }
+.edit-btn-plus:hover  { background: #dcfce7; }
+
+/* ── Edit mode active on button ─────────────────────────────────────────── */
+#edit-mode-btn.edit-active {
+  background: #fffbeb; border-color: #f59e0b; color: #92400e;
+}
+
 /* ── Summary ─────────────────────────────────────────────────────────────── */
 .summary-actions { display: flex; gap: .6rem; margin-bottom: 1rem; flex-wrap: wrap; }
 .summary-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch;

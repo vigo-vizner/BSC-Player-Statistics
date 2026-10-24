@@ -98,6 +98,9 @@ const translations = {
     pts:                  'PTS',
     season_pts_label:     'sp',
     season_pts_title:     'Season total points',
+    edit_mode:            '✏️ Edit',
+    edit_mode_exit:       '✏️ Exit Edit',
+    edit_mode_banner:     '✏️ Edit mode — use − and + to correct stats',
 
     // Summary
     summary_title:        'Summary',
@@ -217,6 +220,9 @@ const translations = {
     pts:                  'Body',
     season_pts_label:     'sb',
     season_pts_title:     'Body za sezónu celkovo',
+    edit_mode:            '✏️ Upraviť',
+    edit_mode_exit:       '✏️ Ukončiť úpravu',
+    edit_mode_banner:     '✏️ Režim úprav — použite − a + na opravu štatistík',
 
     // Summary
     summary_title:        'Súhrn',
