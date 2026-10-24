@@ -1,6 +1,7 @@
 const express  = require('express');
 const router   = express.Router();
 const db       = require('../db');
+const sse      = require('../sse');
 const { layout } = require('../views/layout');
 
 const STAT_TYPES = ['1pt','2pt','3pt','oreb','dreb','ast','to','blk','stl','pf'];
@@ -20,6 +21,20 @@ function buildStatMap(stats, players) {
 function totalPoints(statMap, playerId) {
   const m = statMap[playerId] || {};
   return (m['1pt'] || 0) * 1 + (m['2pt'] || 0) * 2 + (m['3pt'] || 0) * 3;
+}
+
+/** Build the SSE broadcast payload for a player after any stat change. */
+function buildPlayerPayload(t, match, players, statMap, pid, lastStat) {
+  const newLast = lastStat;
+  const lastPlayer = newLast ? players.find(p => p.id === newLast.player_id) : null;
+  return {
+    player_id:        pid,
+    counts:           statMap[pid] || {},
+    points:           totalPoints(statMap, pid),
+    last_player_name: lastPlayer?.name || null,
+    last_stat_label:  newLast ? t(STAT_KEYS[newLast.stat_type]) : null,
+    last_stat_id:     newLast?.id || null,
+  };
 }
 
 // ── GET /match/:id ─────────────────────────────────────────────────────────
@@ -77,11 +92,15 @@ router.get('/:id', (req, res) => {
       <button class="btn btn-danger">${t('close_match_btn')}</button>
     </form>`;
 
+  // SSE indicator — shows a small dot when live sync is active
+  const syncIndicator = isClosed ? '' :
+    `<span id="sync-dot" class="sync-dot sync-dot--off" title="Live sync"></span>`;
+
   const body = `
   ${closedBanner}
   <div class="match-header">
     <div>
-      <h1>${t('vs')} ${esc(match.opponent)}</h1>
+      <h1>${t('vs')} ${esc(match.opponent)} ${syncIndicator}</h1>
       <p class="match-meta">${match.match_date}${match.location ? ' · '+esc(match.location) : ''} · ${esc(match.season_name)}</p>
     </div>
     <div class="match-actions">
@@ -103,9 +122,34 @@ router.get('/:id', (req, res) => {
     </table>
   </div>
 
-  <div id="toast" class="toast hidden"></div>`;
+  <div id="toast" class="toast hidden"></div>
+  ${!isClosed ? `<script>window._matchId = ${match.id};</script>` : ''}`;
 
   res.send(layout(`${t('vs')} ${match.opponent}`, body, { lang, t }));
+});
+
+// ── GET /match/:id/events  (SSE stream) ───────────────────────────────────────
+router.get('/:id/events', (req, res) => {
+  const match = db.getMatch(req.params.id);
+  if (!match) return res.status(404).end();
+
+  res.setHeader('Content-Type',  'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection',    'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // disable Nginx buffering on Railway
+  res.flushHeaders();
+
+  // Send a heartbeat every 25 s to keep the connection alive through proxies
+  const heartbeat = setInterval(() => {
+    try { res.write(': heartbeat\n\n'); } catch (_) { clearInterval(heartbeat); }
+  }, 25000);
+
+  sse.addClient(match.id, res);
+
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    sse.removeClient(match.id, res);
+  });
 });
 
 // ── POST /match/:id/stat ─────────────────────────────────────────────────────
@@ -123,18 +167,15 @@ router.post('/:id/stat', (req, res) => {
   const stats   = db.getStatsByMatch(match.id);
   const players = db.getActivePlayers();
   const statMap = buildStatMap(stats, players);
-  const pid = parseInt(player_id, 10);
+  const pid     = parseInt(player_id, 10);
+  const lastStat = db.getLastStat(match.id);
 
-  res.json({
-    ok: true,
-    player_id: pid,
-    counts: statMap[pid] || {},
-    points: totalPoints(statMap, pid),
-    last_stat_id: db.getLastStat(match.id)?.id,
-    last_player_name: players.find(p => p.id === pid)?.name || '?',
-    last_stat_type: stat_type,
-    last_stat_label: t(STAT_KEYS[stat_type]),
-  });
+  const payload = buildPlayerPayload(t, match, players, statMap, pid, lastStat);
+
+  // Broadcast to all OTHER devices watching this match
+  sse.broadcast(match.id, 'stat', payload);
+
+  res.json({ ok: true, ...payload });
 });
 
 // ── POST /match/:id/undo ──────────────────────────────────────────────────────
@@ -147,26 +188,30 @@ router.post('/:id/undo', (req, res) => {
   const last = db.getLastStat(match.id);
   if (!last) return res.json({ ok: false, message: t('no_stats_yet') });
 
+  const undone_pid = last.player_id;
   db.deleteStat(last.id);
 
   const stats   = db.getStatsByMatch(match.id);
   const players = db.getActivePlayers();
   const statMap = buildStatMap(stats, players);
-  const pid = last.player_id;
   const newLast = db.getLastStat(match.id);
 
-  res.json({
-    ok: true,
-    undone_player_id: pid,
+  const payload = {
+    undone_player_id: undone_pid,
     undone_stat_type: last.stat_type,
-    counts: statMap[pid] || {},
-    points: totalPoints(statMap, pid),
+    counts:  statMap[undone_pid] || {},
+    points:  totalPoints(statMap, undone_pid),
     new_last: newLast ? {
-      id: newLast.id,
+      id:          newLast.id,
       player_name: players.find(p => p.id === newLast.player_id)?.name || '?',
-      stat_label: t(STAT_KEYS[newLast.stat_type]),
+      stat_label:  t(STAT_KEYS[newLast.stat_type]),
     } : null,
-  });
+  };
+
+  // Broadcast undo to all other devices
+  sse.broadcast(match.id, 'undo', payload);
+
+  res.json({ ok: true, ...payload });
 });
 
 // ── POST /match/:id/close ─────────────────────────────────────────────────────
@@ -174,6 +219,7 @@ router.post('/:id/close', (req, res) => {
   const match = db.getMatch(req.params.id);
   if (!match) return res.status(404).send('Match not found');
   db.closeMatch(match.id);
+  sse.broadcast(match.id, 'closed', {});
   res.redirect(`/match/${match.id}`);
 });
 

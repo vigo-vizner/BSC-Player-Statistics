@@ -1,3 +1,99 @@
+/* ── SSE live sync ───────────────────────────────────────────────────────── */
+(function initSSE() {
+  const matchId = window._matchId;
+  if (!matchId) return; // not on a live match page
+
+  const dot = document.getElementById('sync-dot');
+  let es;
+
+  function setDot(on) {
+    if (!dot) return;
+    dot.classList.toggle('sync-dot--on',  on);
+    dot.classList.toggle('sync-dot--off', !on);
+  }
+
+  function connect() {
+    es = new EventSource(`/match/${matchId}/events`);
+
+    es.addEventListener('open', () => setDot(true));
+
+    es.addEventListener('error', () => {
+      setDot(false);
+      es.close();
+      // Reconnect after 3 s
+      setTimeout(connect, 3000);
+    });
+
+    // Another device recorded a stat
+    es.addEventListener('stat', (e) => {
+      const data = JSON.parse(e.data);
+      applyPlayerUpdate(data);
+      if (data.last_player_name && data.last_stat_label) {
+        updateUndoBar(data.last_player_name, data.last_stat_label, true);
+      }
+    });
+
+    // Another device hit undo
+    es.addEventListener('undo', (e) => {
+      const data = JSON.parse(e.data);
+      applyUndoUpdate(data);
+    });
+
+    // Match was closed — reload so the page shows the closed state
+    es.addEventListener('closed', () => {
+      es.close();
+      window.location.reload();
+    });
+  }
+
+  connect();
+})();
+
+/** Apply a stat/player update to the DOM (used by both local tap AND SSE). */
+function applyPlayerUpdate(data) {
+  const counts = data.counts || {};
+  Object.keys(counts).forEach(st => {
+    const b = document.querySelector(`.stat-btn[data-player="${data.player_id}"][data-stat="${st}"]`);
+    if (!b) return;
+    b.textContent = counts[st] > 0 ? counts[st] : '+';
+    b.classList.toggle('has-val', counts[st] > 0);
+  });
+  const ptsCell = document.getElementById(`pts-${data.player_id}`);
+  if (ptsCell) ptsCell.textContent = data.points;
+}
+
+/** Apply an undo update to the DOM. */
+function applyUndoUpdate(data) {
+  const counts = data.counts || {};
+  const pid    = data.undone_player_id;
+  Object.keys(counts).forEach(st => {
+    const b = document.querySelector(`.stat-btn[data-player="${pid}"][data-stat="${st}"]`);
+    if (!b) return;
+    b.textContent = counts[st] > 0 ? counts[st] : '+';
+    b.classList.toggle('has-val', counts[st] > 0);
+  });
+  const ptsCell = document.getElementById(`pts-${pid}`);
+  if (ptsCell) ptsCell.textContent = data.points;
+
+  if (data.new_last) {
+    updateUndoBar(data.new_last.player_name, data.new_last.stat_label, true);
+  } else {
+    updateUndoBar(null, null, false);
+  }
+}
+
+/** Update the undo bar text and button state. */
+function updateUndoBar(playerName, statLabel, hasStats) {
+  const undoInfo = document.getElementById('undo-info');
+  const undoBtn  = document.getElementById('undo-btn');
+  if (undoInfo) {
+    undoInfo.innerHTML = hasStats && playerName
+      ? `Last: <strong>${escHtml(playerName)}</strong> — ${escHtml(statLabel)}`
+      : (undoInfo.dataset.emptyLabel || 'No stats recorded yet');
+  }
+  if (undoBtn) undoBtn.disabled = !hasStats;
+}
+
 /* ── Live match stat buttons ─────────────────────────────────────────────── */
 document.addEventListener('click', async (e) => {
   const btn = e.target.closest('.stat-btn');
@@ -18,30 +114,15 @@ document.addEventListener('click', async (e) => {
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || 'error');
 
-    // Update all stat buttons for this player
-    const counts = data.counts;
-    Object.keys(counts).forEach(st => {
-      const b = document.querySelector(
-        `.stat-btn[data-player="${data.player_id}"][data-stat="${st}"]`
-      );
-      if (!b) return;
-      b.textContent = counts[st] > 0 ? counts[st] : '+';
-      b.classList.toggle('has-val', counts[st] > 0);
-    });
-
-    // Update total points cell
-    const ptsCell = document.getElementById(`pts-${data.player_id}`);
-    if (ptsCell) ptsCell.textContent = data.points;
+    // Update DOM for this player (shared helper also used by SSE)
+    applyPlayerUpdate(data);
 
     // Flash the tapped button
     btn.classList.add('flash');
     setTimeout(() => btn.classList.remove('flash'), 300);
 
     // Update undo bar
-    const undoInfo = document.getElementById('undo-info');
-    const undoBtn  = document.getElementById('undo-btn');
-    if (undoInfo) undoInfo.innerHTML = `Last: <strong>${escHtml(data.last_player_name)}</strong> — ${escHtml(data.last_stat_label)}`;
-    if (undoBtn)  undoBtn.disabled = false;
+    if (data.last_player_name) updateUndoBar(data.last_player_name, data.last_stat_label, true);
 
     showToast(`+${escHtml(data.last_stat_label)} — ${escHtml(data.last_player_name)}`);
   } catch (err) {
@@ -59,29 +140,8 @@ async function undoLast(matchId) {
     const data = await res.json();
     if (!data.ok) { showToast(data.message || 'Nothing to undo'); return; }
 
-    // Update buttons & points for the undone player
-    const counts = data.counts;
-    const pid    = data.undone_player_id;
-    Object.keys(counts).forEach(st => {
-      const b = document.querySelector(`.stat-btn[data-player="${pid}"][data-stat="${st}"]`);
-      if (!b) return;
-      b.textContent = counts[st] > 0 ? counts[st] : '+';
-      b.classList.toggle('has-val', counts[st] > 0);
-    });
-    const ptsCell = document.getElementById(`pts-${pid}`);
-    if (ptsCell) ptsCell.textContent = data.points;
-
-    // Update undo bar
-    const undoInfo = document.getElementById('undo-info');
-    const undoBtn  = document.getElementById('undo-btn');
-    if (data.new_last) {
-      if (undoInfo) undoInfo.innerHTML = `Last: <strong>${escHtml(data.new_last.player_name)}</strong> — ${escHtml(data.new_last.stat_label)}`;
-      if (undoBtn)  undoBtn.disabled = false;
-    } else {
-      if (undoInfo) undoInfo.textContent = 'No stats recorded yet';
-      if (undoBtn)  undoBtn.disabled = true;
-    }
-
+    // Update DOM (shared helper also used by SSE)
+    applyUndoUpdate(data);
     showToast('Undone ✓');
   } catch (err) {
     showToast('Error — please retry', true);

@@ -278,6 +278,15 @@ body.login-page {
 .modal-actions { display: flex; gap: .5rem; justify-content: flex-end; margin-top: .25rem; }
 .hidden { display: none !important; }
 
+/* ── Live sync indicator dot ─────────────────────────────────────────────── */
+.sync-dot {
+  display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+  margin-left: .4rem; vertical-align: middle; flex-shrink: 0;
+  transition: background .3s;
+}
+.sync-dot--on  { background: #22c55e; box-shadow: 0 0 0 2px rgba(34,197,94,.25); }
+.sync-dot--off { background: #94a3b8; }
+
 /* ── Toast ───────────────────────────────────────────────────────────────── */
 .toast {
   position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
