@@ -24,16 +24,16 @@
       setTimeout(connect, 3000);
     });
 
-    // Another device recorded a stat
+    // Another device recorded (or edit-removed) a stat.
+    // "Your last" is per device, so the bar is NOT changed by other devices' stats —
+    // except an edit-mode removal, which may have deleted this device's own last stat.
     es.addEventListener('stat', (e) => {
       const data = JSON.parse(e.data);
       applyPlayerUpdate(data);
-      if (data.last_player_name && data.last_stat_label) {
-        updateUndoBar(data.last_player_name, data.last_stat_label, true);
-      }
+      if (data.removed) refreshMyLast();
     });
 
-    // Another device hit undo
+    // Another device hit undo (it only removes that device's own stat, so our bar is unaffected)
     es.addEventListener('undo', (e) => {
       const data = JSON.parse(e.data);
       applyUndoUpdate(data);
@@ -131,30 +131,35 @@ function applyPlayerUpdate(data) {
   if (ptsCell) ptsCell.textContent = data.points;
 }
 
-/** Apply an undo update to the DOM. */
+/** Apply an undo update to the DOM (buttons + points only; the undo bar is per device). */
 function applyUndoUpdate(data) {
   const pid = data.undone_player_id;
   updateStatButtons(pid, data.counts || {});
   const ptsCell = document.getElementById(`pts-${pid}`);
   if (ptsCell) ptsCell.textContent = data.points;
-
-  if (data.new_last) {
-    updateUndoBar(data.new_last.player_name, data.new_last.stat_label, true);
-  } else {
-    updateUndoBar(null, null, false);
-  }
 }
 
-/** Update the undo bar text and button state. */
-function updateUndoBar(playerName, statLabel, hasStats) {
+/** Show THIS device's own last stat in the undo bar. `my` = { player_name, stat_label } or null/undefined. */
+function updateUndoBar(my) {
   const undoInfo = document.getElementById('undo-info');
   const undoBtn  = document.getElementById('undo-btn');
+  const has = !!(my && my.player_name);
   if (undoInfo) {
-    undoInfo.innerHTML = hasStats && playerName
-      ? `Last: <strong>${escHtml(playerName)}</strong> — ${escHtml(statLabel)}`
-      : (undoInfo.dataset.emptyLabel || 'No stats recorded yet');
+    undoInfo.innerHTML = has
+      ? `${escHtml(undoInfo.dataset.yourLabel || 'Your last')}: <strong>${escHtml(my.player_name)}</strong> — ${escHtml(my.stat_label)}`
+      : escHtml(undoInfo.dataset.emptyLabel || 'Nothing to undo');
   }
-  if (undoBtn) undoBtn.disabled = !hasStats;
+  if (undoBtn) undoBtn.disabled = !has;
+}
+
+/** Re-fetch this device's own last stat (used when an edit-mode removal elsewhere may have deleted it). */
+async function refreshMyLast() {
+  if (!window._matchId) return;
+  try {
+    const res  = await fetch(`/match/${window._matchId}/my-last`);
+    const data = await res.json();
+    updateUndoBar(data.my_last);
+  } catch (_) { /* non-critical */ }
 }
 
 /* ── Live match stat buttons ─────────────────────────────────────────────── */
@@ -184,8 +189,8 @@ document.addEventListener('click', async (e) => {
     btn.classList.add('flash');
     setTimeout(() => btn.classList.remove('flash'), 300);
 
-    // Update undo bar
-    if (data.last_player_name) updateUndoBar(data.last_player_name, data.last_stat_label, true);
+    // Update undo bar with THIS device's own last stat
+    updateUndoBar(data.my_last);
 
     showToast(`+${escHtml(data.last_stat_label)} — ${escHtml(data.last_player_name)}`);
   } catch (err) {
@@ -203,8 +208,9 @@ async function undoLast(matchId) {
     const data = await res.json();
     if (!data.ok) { showToast(data.message || 'Nothing to undo'); return; }
 
-    // Update DOM (shared helper also used by SSE)
+    // Update DOM (shared helper also used by SSE), then step back to this device's previous stat
     applyUndoUpdate(data);
+    updateUndoBar(data.my_last);
     showToast('Undone ✓');
   } catch (err) {
     showToast('Error — please retry', true);
@@ -259,6 +265,7 @@ document.addEventListener('click', async (e) => {
     if (!data.ok) { showToast(data.message || 'Nothing to remove'); return; }
 
     applyPlayerUpdate(data);
+    updateUndoBar(data.my_last);
     showToast(isPlus ? `+${escHtml(data.last_stat_label)} — ${escHtml(data.last_player_name)}` : 'Removed ✓');
   } catch (err) {
     showToast('Error — please retry', true);

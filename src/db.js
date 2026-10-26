@@ -67,6 +67,8 @@ const migrations = [
   "ALTER TABLE matches ADD COLUMN tournament_name TEXT NOT NULL DEFAULT ''",
   "ALTER TABLE matches ADD COLUMN score_bsc INTEGER NOT NULL DEFAULT 0",
   "ALTER TABLE matches ADD COLUMN score_opponent INTEGER NOT NULL DEFAULT 0",
+  // Browser that recorded the stat (per-device Undo). NULL for stats recorded before this existed.
+  "ALTER TABLE stats ADD COLUMN device_id TEXT",
 ];
 for (const sql of migrations) {
   try { db.prepare(sql).run(); } catch (_) { /* column already exists */ }
@@ -185,8 +187,10 @@ const closeMatch   = (id) => db.prepare("UPDATE matches SET status='closed' WHER
 const reopenMatch  = (id) => db.prepare("UPDATE matches SET status='open' WHERE id=?").run(id);
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
-const insertStat          = (matchId, playerId, statType) => db.prepare('INSERT INTO stats (match_id,player_id,stat_type) VALUES (?,?,?)').run(matchId, playerId, statType);
+const insertStat          = (matchId, playerId, statType, deviceId = null) => db.prepare('INSERT INTO stats (match_id,player_id,stat_type,device_id) VALUES (?,?,?,?)').run(matchId, playerId, statType, deviceId);
 const getLastStat         = (matchId) => db.prepare('SELECT * FROM stats WHERE match_id=? ORDER BY id DESC LIMIT 1').get(matchId);
+// Newest stat recorded by one device (stats without a device_id never match)
+const getLastStatByDevice = (matchId, deviceId) => db.prepare('SELECT * FROM stats WHERE match_id=? AND device_id=? ORDER BY id DESC LIMIT 1').get(matchId, deviceId);
 const deleteStat          = (id) => db.prepare('DELETE FROM stats WHERE id=?').run(id);
 const deleteLastStatOfType = (matchId, playerId, statType) => {
   const row = db.prepare('SELECT id FROM stats WHERE match_id=? AND player_id=? AND stat_type=? ORDER BY id DESC LIMIT 1').get(matchId, playerId, statType);
@@ -220,6 +224,6 @@ module.exports = {
   getSeasons, getSeasonsByCat, insertSeason, updateSeason, deleteSeason,
   getMatchesBySeason, getMatch, insertMatch, updateMatch, updateMatchScore, deleteMatch,
   closeMatch, reopenMatch,
-  insertStat, getLastStat, deleteStat, deleteLastStatOfType, getStatsByMatch, getStatsBySeasonRaw,
+  insertStat, getLastStat, getLastStatByDevice, deleteStat, deleteLastStatOfType, getStatsByMatch, getStatsBySeasonRaw,
   getSeasonPtsByPlayer,
 };

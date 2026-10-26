@@ -1,3 +1,4 @@
+const crypto   = require('crypto');
 const express  = require('express');
 const router   = express.Router();
 const db       = require('../db');
@@ -7,6 +8,29 @@ const { buildTour } = require('../tour');
 
 const STAT_TYPES = ['1pt','2pt','3pt','oreb','dreb','ast','to','blk','stl','pf'];
 const STAT_KEYS  = { '1pt':'stat_1pt','2pt':'stat_2pt','3pt':'stat_3pt','oreb':'stat_oreb','dreb':'stat_dreb','ast':'stat_ast','to':'stat_to','blk':'stat_blk','stl':'stat_stl','pf':'stat_pf' };
+
+// ── Per-browser device id (used so Undo only touches this device's own stats) ──
+// Random id kept in a long-lived cookie; no login or setup needed.
+router.use((req, res, next) => {
+  const m = /(?:^|;\s*)bsc_device=([\w-]{8,64})/.exec(req.headers.cookie || '');
+  if (m) {
+    req.deviceId = m[1];
+  } else {
+    req.deviceId = crypto.randomUUID();
+    res.cookie('bsc_device', req.deviceId, { maxAge: 1000 * 60 * 60 * 24 * 365, httpOnly: true, sameSite: 'lax' });
+  }
+  next();
+});
+
+/** This device's newest stat as { player_name, stat_label }, or null if none. */
+function buildMyLast(t, players, matchId, deviceId) {
+  const s = db.getLastStatByDevice(matchId, deviceId);
+  if (!s) return null;
+  return {
+    player_name: players.find(p => p.id === s.player_id)?.name || '?',
+    stat_label:  t(STAT_KEYS[s.stat_type]),
+  };
+}
 
 function esc(str) {
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -52,7 +76,7 @@ router.get('/:id', (req, res) => {
     : db.getActivePlayers();
   const stats    = db.getStatsByMatch(match.id);
   const statMap  = buildStatMap(stats, players);
-  const lastStat = db.getLastStat(match.id);
+  const myLastStat = db.getLastStatByDevice(match.id, req.deviceId);
 
   // Season pts per player (all matches in the season, including this one live)
   const seasonId     = match.season_id;
@@ -117,10 +141,10 @@ router.get('/:id', (req, res) => {
     </tr>` : ''}`;
   }).join('');
 
-  const lastPlayer = players.find(p => p.id === lastStat?.player_id);
-  const undoInfo = lastStat
-    ? `${t('last')}: <strong>${esc(lastPlayer?.name || '?')}</strong> — ${t(STAT_KEYS[lastStat.stat_type])}`
-    : t('no_stats_yet');
+  const lastPlayer = players.find(p => p.id === myLastStat?.player_id);
+  const undoInfo = myLastStat
+    ? `${t('your_last')}: <strong>${esc(lastPlayer?.name || '?')}</strong> — ${t(STAT_KEYS[myLastStat.stat_type])}`
+    : t('nothing_to_undo');
 
   const closedBanner = isClosed ? `
     <div class="closed-banner">
@@ -130,8 +154,8 @@ router.get('/:id', (req, res) => {
 
   const liveControls = isClosed ? '' : `
     <div class="undo-bar" id="undo-bar">
-      <span id="undo-info">${undoInfo}</span>
-      <button class="btn btn-warning" id="undo-btn" ${!lastStat ? 'disabled' : ''} onclick="undoLast(${match.id})">${t('undo')}</button>
+      <span id="undo-info" data-your-label="${esc(t('your_last'))}" data-empty-label="${esc(t('nothing_to_undo'))}">${undoInfo}</span>
+      <button class="btn btn-warning" id="undo-btn" ${!myLastStat ? 'disabled' : ''} onclick="undoLast(${match.id})">${t('undo')}</button>
     </div>
     <button class="btn btn-outline" id="edit-mode-btn" onclick="toggleEditMode()"
       data-edit-label="${esc(t('edit_mode'))}" data-exit-label="${esc(t('edit_mode_exit'))}">${t('edit_mode')}</button>
@@ -236,7 +260,7 @@ router.post('/:id/stat', (req, res) => {
   if (!match) return res.status(404).json({ error: 'match not found' });
   if (match.status === 'closed') return res.status(403).json({ error: 'match is closed' });
 
-  db.insertStat(match.id, player_id, stat_type);
+  db.insertStat(match.id, player_id, stat_type, req.deviceId);
 
   const stats   = db.getStatsByMatch(match.id);
   const players = db.getActivePlayers();
@@ -249,7 +273,8 @@ router.post('/:id/stat', (req, res) => {
   // Broadcast to all OTHER devices watching this match
   sse.broadcast(match.id, 'stat', payload);
 
-  res.json({ ok: true, ...payload });
+  // my_last is private to the requesting device — never broadcast
+  res.json({ ok: true, ...payload, my_last: buildMyLast(t, players, match.id, req.deviceId) });
 });
 
 // ── POST /match/:id/stat/remove ──────────────────────────────────────────────
@@ -272,8 +297,16 @@ router.post('/:id/stat/remove', (req, res) => {
   const lastStat = db.getLastStat(match.id);
 
   const payload = buildPlayerPayload(t, match, players, statMap, pid, lastStat);
-  sse.broadcast(match.id, 'stat', payload);
-  res.json({ ok: true, ...payload });
+  // `removed` tells other devices to re-check their own "Your last" (the removed stat may have been theirs)
+  sse.broadcast(match.id, 'stat', { ...payload, removed: true });
+  res.json({ ok: true, ...payload, my_last: buildMyLast(t, players, match.id, req.deviceId) });
+});
+
+// ── GET /match/:id/my-last ────────────────────────────────────────────────────
+router.get('/:id/my-last', (req, res) => {
+  const match = db.getMatch(req.params.id);
+  if (!match) return res.status(404).json({ error: 'match not found' });
+  res.json({ my_last: buildMyLast(req.t, db.getPlayers(), match.id, req.deviceId) });
 });
 
 // ── POST /match/:id/undo ──────────────────────────────────────────────────────
@@ -283,8 +316,9 @@ router.post('/:id/undo', (req, res) => {
   if (!match) return res.status(404).json({ error: 'match not found' });
   if (match.status === 'closed') return res.status(403).json({ error: 'match is closed' });
 
-  const last = db.getLastStat(match.id);
-  if (!last) return res.json({ ok: false, message: t('no_stats_yet') });
+  // Only this device's own stats can be undone (older stats without a device id never match)
+  const last = db.getLastStatByDevice(match.id, req.deviceId);
+  if (!last) return res.json({ ok: false, message: t('nothing_to_undo') });
 
   const undone_pid = last.player_id;
   db.deleteStat(last.id);
@@ -292,24 +326,18 @@ router.post('/:id/undo', (req, res) => {
   const stats   = db.getStatsByMatch(match.id);
   const players = db.getActivePlayers();
   const statMap = buildStatMap(stats, players);
-  const newLast = db.getLastStat(match.id);
 
   const payload = {
     undone_player_id: undone_pid,
     undone_stat_type: last.stat_type,
     counts:  statMap[undone_pid] || {},
     points:  totalPoints(statMap, undone_pid),
-    new_last: newLast ? {
-      id:          newLast.id,
-      player_name: players.find(p => p.id === newLast.player_id)?.name || '?',
-      stat_label:  t(STAT_KEYS[newLast.stat_type]),
-    } : null,
   };
 
   // Broadcast undo to all other devices
   sse.broadcast(match.id, 'undo', payload);
 
-  res.json({ ok: true, ...payload });
+  res.json({ ok: true, ...payload, my_last: buildMyLast(t, players, match.id, req.deviceId) });
 });
 
 // ── POST /match/:id/score ─────────────────────────────────────────────────────
