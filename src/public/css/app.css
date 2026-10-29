@@ -601,19 +601,53 @@ select:focus { outline: none; border-color: var(--bsc-yellow); box-shadow: 0 0 0
 
 /* ── Mobile tweaks ───────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
-  /* Header: logo row on top, nav+controls below */
-  .header-inner { gap: .5rem; padding: .4rem .75rem; }
-  .header-logo-link { flex: 1; }          /* take full first row */
-  .header-right { margin-left: auto; }    /* push to right on same row */
+  /* Header: two rows. Row 1 = logo (left) + ? / language / logout (right).
+     Row 2 = Dashboard / Admin as equal-width tabs. */
+  .header-inner { gap: .3rem .5rem; padding: .4rem .75rem .35rem; }
+  .header-logo-link { flex: 1 1 0; min-width: 0; }
+  .header-right { margin-left: auto; gap: .4rem; }
   header nav {
-    order: 3; width: 100%;               /* drop to second row */
-    border-top: 1px solid rgba(255,255,255,.08);
-    padding-top: .3rem;
+    order: 3;
+    flex: 1 1 100%;                      /* flex-basis, not width: "flex: 1" would otherwise force it onto row 1 */
+    border-top: 1px solid rgba(255,255,255,.1);
+    padding-top: .3rem; gap: .35rem;
   }
-  header nav a { padding: .3rem .6rem; font-size: .9rem; }
-  .logo-img { height: 34px; }
-  .logo-text { font-size: .88rem; }
-  .logo-text span { font-size: .65rem; }
+  header nav a { flex: 1; text-align: center; padding: .4rem .5rem; font-size: .95rem; }
+  .logo-img { height: 32px; }
+  .logo-text { font-size: .85rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .logo-text span { font-size: .6rem; }
+  .tour-btn { width: 1.55rem; height: 1.55rem; font-size: 1rem; }
+  .logout-btn { font-size: .78rem; }
+
+  /* Dashboard table: Location + Type hidden on phones, everything else fits without sideways scroll */
+  .hide-sm { display: none !important; }
+  .data-table--compact { min-width: 0; font-size: .8rem; }
+  .data-table--compact th, .data-table--compact td { padding: .5rem .35rem; }
+  .data-table--compact td:first-child { white-space: nowrap; }
+  .data-table--compact .td-actions { flex-direction: column; gap: .3rem; }
+  .data-table--compact .td-actions .btn { width: 100%; }
+
+  /* Admin tables become stacked cards: details on top, action buttons underneath */
+  .data-table--cards { min-width: 0; }
+  .data-table--cards thead { display: none; }
+  .data-table--cards, .data-table--cards tbody { display: block; }
+  .data-table--cards tr {
+    display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .6rem;
+    padding: .6rem .75rem; border-bottom: 1px solid #edf0f7;
+  }
+  .data-table--cards tr:last-child { border-bottom: none; }
+  .data-table--cards td { display: block; padding: 0 !important; border: none; }
+  .data-table--cards td.c-grow, .data-table--cards td.c-main { flex: 1 1 auto; min-width: 0; font-weight: 600; }
+  .data-table--cards td.c-num { color: var(--muted); }
+  .data-table--cards td[data-label]::before {
+    content: attr(data-label) ": "; color: var(--muted); font-size: .75rem; font-weight: 600;
+  }
+  .data-table--cards td.c-actions { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .2rem; }
+  .data-table--cards td.c-actions form { display: inline-flex !important; }
+  .data-table--cards td.empty { flex: 1 1 100%; text-align: center; }
+
+  /* Admin tabs: three equal-width tabs, long labels may wrap */
+  .admin-tab { flex: 1 1 0; min-width: 0; padding: .55rem .25rem; font-size: .9rem; text-align: center; white-space: normal; line-height: 1.15; }
 
   /* Main content padding */
   main { padding: 1rem .75rem 3rem; }
@@ -621,9 +655,29 @@ select:focus { outline: none; border-color: var(--bsc-yellow); box-shadow: 0 0 0
   /* Match header stacks vertically */
   .match-header { flex-direction: column; gap: .5rem; align-items: stretch; }
   .match-header h1 { font-size: 1.3rem; }
-  .match-actions { width: 100%; flex-wrap: wrap; }
-  .undo-bar { flex: 1; flex-wrap: wrap; min-width: 0; }
+  /* Edit / Close / Summary / Share as a tidy 2x2 grid (the Undo bar is fixed to the bottom, so it is not part of the grid) */
+  .match-actions { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+  .match-actions .btn, .match-actions form .btn { width: 100%; }
+  .match-actions form { display: block; }
+  /* Undo bar: always reachable at the bottom of the screen while scrolling the player list */
+  .undo-bar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 90;
+    flex-wrap: nowrap; justify-content: space-between; gap: .75rem;
+    border-width: 1px 0 0; border-radius: 0;
+    padding: .6rem .85rem calc(.6rem + env(safe-area-inset-bottom));
+    font-size: .9rem; color: var(--text);
+    box-shadow: 0 -2px 10px rgba(0,0,0,.18);
+  }
+  /* Up to two lines so the stat label (e.g. "— 3PT") stays visible next to a long player name */
+  .undo-bar #undo-info {
+    flex: 1; min-width: 0; overflow: hidden; font-size: .85rem; line-height: 1.25;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  }
+  .match-actions .undo-bar .btn { flex-shrink: 0; width: auto; padding: .6rem 1.2rem; font-size: 1.05rem; }
+  .live-table-wrap { margin-bottom: 3rem; }   /* keep the last player clear of the fixed bar */
+  .toast { bottom: calc(5rem + env(safe-area-inset-bottom)); }
   .scoreboard { justify-content: center; width: 100%; }
+  .scoreboard .score-team { white-space: normal; line-height: 1.1; min-width: 0; }
   .score-input { width: 2.8rem; font-size: 1.35rem; }
   .score-val { font-size: 1.4rem; }
 
@@ -645,6 +699,8 @@ select:focus { outline: none; border-color: var(--bsc-yellow); box-shadow: 0 0 0
   .accord-row.hidden { display: none; }
   .accord-row { display: table-row; }
   .accord-grid { grid-template-columns: repeat(5, 1fr); gap: .35rem; }
+  /* Edit mode: each cell holds − / count / + (~100px), so use as many columns as fit instead of a fixed 5 */
+  .accord-grid.accord-edit { grid-template-columns: repeat(auto-fill, minmax(106px, 1fr)); }
   .accord-btn { height: 62px; }
   .accord-label { font-size: .7rem; }
   .accord-count { font-size: 1.25rem; }

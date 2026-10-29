@@ -62,8 +62,8 @@ router.get('/', (req, res) => {
       <tr>
         <td>${m.match_date}</td>
         <td>${esc(m.opponent)} ${scoreLabel}</td>
-        <td>${esc(m.location)}</td>
-        <td>${typeBadge}${tournLabel}</td>
+        <td class="hide-sm">${esc(m.location)}</td>
+        <td class="hide-sm">${typeBadge}${tournLabel}</td>
         <td>${statusBadge}</td>
         <td class="td-actions">
           ${liveBtn}
@@ -82,8 +82,8 @@ router.get('/', (req, res) => {
         <a href="/season/${s.id}/summary" class="btn btn-sm btn-outline">${t('season_summary')}</a>
       </div>
       <div class="table-wrap">
-      <table class="data-table">
-        <thead><tr><th>${t('date')}</th><th>${t('opponent')}</th><th>${t('location')}</th><th>${t('match_type')}</th><th>${t('status')}</th><th>${t('actions')}</th></tr></thead>
+      <table class="data-table data-table--compact">
+        <thead><tr><th>${t('date')}</th><th>${t('opponent')}</th><th class="hide-sm">${t('location')}</th><th class="hide-sm">${t('match_type')}</th><th>${t('status')}</th><th>${t('actions')}</th></tr></thead>
         <tbody>${matchRows || `<tr><td colspan="6" class="empty">${t('no_matches')}</td></tr>`}</tbody>
       </table>
       </div>

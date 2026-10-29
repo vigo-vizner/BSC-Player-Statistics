@@ -36,9 +36,9 @@ router.get('/', (req, res) => {
   // ── Categories panel ──────────────────────────────────────────────────────
   const catRows = categories.map(c => `
     <tr>
-      <td>${esc(c.name)}</td>
-      <td>${c.sort_order}</td>
-      <td>
+      <td class="c-grow">${esc(c.name)}</td>
+      <td data-label="${esc(t('sort_order'))}">${c.sort_order}</td>
+      <td class="c-actions">
         <button class="btn btn-sm" onclick="openEditCategory(${c.id},'${esc(c.name)}',${c.sort_order})">${t('edit')}</button>
         <button class="btn btn-sm btn-danger" onclick="openDeleteConfirm('/admin/category/${c.id}/delete?tab=categories','${t('delete_confirm_what')}: ${esc(c.name)}')">${t('delete')}</button>
       </td>
@@ -68,10 +68,10 @@ router.get('/', (req, res) => {
       const catIds = JSON.stringify((p.categories || []).map(c => c.id));
       return `
       <tr>
-        <td>#${esc(p.number)}</td>
-        <td>${esc(p.name)}</td>
+        <td class="c-num">#${esc(p.number)}</td>
+        <td class="c-grow">${esc(p.name)}</td>
         <td><span class="badge ${p.active ? 'badge-green' : 'badge-gray'}">${p.active ? t('active') : t('inactive')}</span></td>
-        <td>
+        <td class="c-actions">
           <button class="btn btn-sm" onclick="openEditPlayer(${p.id},'${esc(p.name)}','${esc(p.number)}',${p.active},${esc(catIds)})">${t('edit')}</button>
           <button class="btn btn-sm btn-danger" onclick="openDeleteConfirm('/admin/player/${p.id}/delete?tab=players','${t('delete_confirm_what')}: #${esc(p.number)} ${esc(p.name)}')">${t('delete')}</button>
         </td>
@@ -80,7 +80,7 @@ router.get('/', (req, res) => {
     return `<div class="player-group">
       <div class="player-group-label">${g.label}</div>
       <div class="table-wrap">
-      <table class="data-table">
+      <table class="data-table data-table--cards">
         <thead><tr><th>${t('jersey')}</th><th>${t('name')}</th><th>${t('status')}</th><th>${t('actions')}</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
@@ -106,11 +106,11 @@ router.get('/', (req, res) => {
         return `
         <tr>
           <td>${m.match_date}</td>
-          <td>${esc(m.opponent)}</td>
-          <td>${esc(m.location)}</td>
+          <td class="c-main">${esc(m.opponent)}</td>
+          <td${m.location ? ` data-label="${esc(t('location'))}"` : ''}>${esc(m.location)}</td>
           <td>${typeBadge}${tournLabel}</td>
           <td><span class="badge ${m.status === 'closed' ? 'badge-red' : 'badge-green'}">${m.status === 'closed' ? `🔒 ${t('closed')}` : t('open')}</span></td>
-          <td>
+          <td class="c-actions">
             <button class="btn btn-sm" onclick="openEditMatch(${m.id},'${esc(m.opponent)}','${m.match_date}','${esc(m.location)}','${m.match_type || 'league'}','${esc(m.tournament_name || '')}')">${t('edit')}</button>
             ${m.status === 'closed'
               ? `<form method="POST" action="/match/${m.id}/reopen?tab=seasons" style="display:inline"><button class="btn btn-sm btn-primary">${t('reopen')}</button></form>`
@@ -132,7 +132,7 @@ router.get('/', (req, res) => {
           </div>
         </div>
         <div class="table-wrap">
-        <table class="data-table">
+        <table class="data-table data-table--cards">
           <thead><tr><th>${t('date')}</th><th>${t('opponent')}</th><th>${t('location')}</th><th>${t('match_type')}</th><th>${t('status')}</th><th>${t('actions')}</th></tr></thead>
           <tbody>${matchRows || `<tr><td colspan="6" class="empty">${t('no_matches_admin')}</td></tr>`}</tbody>
         </table>
@@ -182,7 +182,7 @@ router.get('/', (req, res) => {
       <button class="btn btn-primary" onclick="openAddCategory()">${t('add_category')}</button>
     </div>
     <div class="table-wrap">
-    <table class="data-table">
+    <table class="data-table data-table--cards">
       <thead><tr><th>${t('category_name')}</th><th>${t('sort_order')}</th><th>${t('actions')}</th></tr></thead>
       <tbody>${catRows || `<tr><td colspan="3" class="empty">${t('no_categories')}</td></tr>`}</tbody>
     </table>
