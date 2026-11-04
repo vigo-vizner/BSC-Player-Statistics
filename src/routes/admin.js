@@ -1,4 +1,6 @@
 const express  = require('express');
+const fs       = require('fs');
+const path     = require('path');
 const router   = express.Router();
 const db       = require('../db');
 const { layout } = require('../views/layout');
@@ -28,10 +30,13 @@ function catOptionsMulti(categories, selectedIds, t) {
 router.get('/', (req, res) => {
   const t          = req.t;
   const lang       = req.lang;
-  const tab        = ['players', 'seasons', 'categories'].includes(req.query.tab) ? req.query.tab : 'players';
+  const tab        = ['players', 'seasons', 'categories', 'backup'].includes(req.query.tab) ? req.query.tab : 'players';
   const categories = db.getCategories();
   const players    = db.getPlayers();
   const seasons    = db.getSeasons();
+
+  let dbSizeLabel = '—';
+  try { dbSizeLabel = (fs.statSync(db.DB_FILE).size / 1024).toFixed(0) + ' kB'; } catch (_) { /* ignore */ }
 
   // ── Categories panel ──────────────────────────────────────────────────────
   const catRows = categories.map(c => `
@@ -147,7 +152,13 @@ router.get('/', (req, res) => {
   }).join('');
 
   const body = `
-  <script>window._adminTab = '${tab}';</script>
+  <script>window._adminTab = '${tab}';
+  window._backupMsg = ${JSON.stringify({
+    noFile: t('backup_restore_no_file'),
+    done:   t('backup_restore_done'),
+    failed: t('backup_restore_failed'),
+    wrongPw: t('delete_confirm_wrong_pw'),
+  }).replace(/</g, '\\u003c')};</script>
   <div class="page-header"><h1>${t('admin')}</h1></div>
 
   <!-- ── Tab bar ── -->
@@ -155,6 +166,7 @@ router.get('/', (req, res) => {
     <button class="admin-tab${tab === 'players'    ? ' active' : ''}" data-tab="players">${t('players')}</button>
     <button class="admin-tab${tab === 'seasons'    ? ' active' : ''}" data-tab="seasons">${t('seasons_matches')}</button>
     <button class="admin-tab${tab === 'categories' ? ' active' : ''}" data-tab="categories">${t('categories')}</button>
+    <button class="admin-tab${tab === 'backup'     ? ' active' : ''}" data-tab="backup">${t('backup')}</button>
   </div>
 
   <!-- ── Players panel ── -->
@@ -186,6 +198,56 @@ router.get('/', (req, res) => {
       <thead><tr><th>${t('category_name')}</th><th>${t('sort_order')}</th><th>${t('actions')}</th></tr></thead>
       <tbody>${catRows || `<tr><td colspan="3" class="empty">${t('no_categories')}</td></tr>`}</tbody>
     </table>
+    </div>
+  </div>
+
+  <!-- ── Backup panel ── -->
+  <div class="admin-panel${tab === 'backup' ? ' active' : ''}" id="panel-backup">
+    <div class="section-header"><h2>${t('backup')}</h2></div>
+
+    <div class="backup-card">
+      <h3>${t('backup_download_title')}</h3>
+      <p>${t('backup_download_desc')}</p>
+      <ul>
+        <li>${t('backup_download_inc')}</li>
+        <li>${t('backup_download_exc')}</li>
+        <li>${t('backup_download_effect')}</li>
+      </ul>
+      <p class="backup-meta">${t('backup_db_size')}: <strong>${dbSizeLabel}</strong></p>
+      <a class="btn btn-primary" href="/admin/backup/download">${t('backup_download_btn')}</a>
+    </div>
+
+    <div class="backup-card backup-card--warn">
+      <h3>${t('backup_restore_title')}</h3>
+      <p>${t('backup_restore_desc')}</p>
+      <ul>
+        <li>${t('backup_restore_effect1')}</li>
+        <li>${t('backup_restore_effect2')}</li>
+        <li>${t('backup_restore_effect3')}</li>
+        <li>${t('backup_restore_effect4')}</li>
+      </ul>
+      <div class="backup-restore-row">
+        <input type="file" id="restore-file" accept=".db,application/octet-stream">
+        <button class="btn btn-danger" onclick="openRestoreConfirm()">${t('backup_restore_btn')}</button>
+      </div>
+      <p id="restore-file-error" class="error hidden"></p>
+    </div>
+  </div>
+
+  <!-- ── Restore Confirm Modal ── -->
+  <div id="modal-restore" class="modal hidden">
+    <div class="modal-box">
+      <h3 style="color:var(--red)">${t('backup_restore_confirm_title')}</h3>
+      <p style="font-size:.9rem">${t('backup_restore_confirm_text')}</p>
+      <p id="restore-confirm-label" style="font-size:.9rem;color:var(--muted)"></p>
+      <label>${t('delete_confirm_password')}
+        <input type="password" id="restore-confirm-pw" autocomplete="current-password" placeholder="••••••••">
+      </label>
+      <p id="restore-confirm-error" class="error hidden"></p>
+      <div class="modal-actions">
+        <button class="btn btn-danger" id="restore-confirm-btn" onclick="submitRestore()">${t('backup_restore_btn')}</button>
+        <button type="button" class="btn" onclick="closeModal('modal-restore')">${t('cancel')}</button>
+      </div>
     </div>
   </div>
 
@@ -375,6 +437,53 @@ router.post('/match/:id/delete', (req, res) => {
   adminRedirect(res, req, 'seasons');
 });
 
+
+// ── Backup: download ──────────────────────────────────────────────────────────
+router.get('/backup/download', async (req, res) => {
+  const tmp = path.join(db.DATA_DIR, `download-${Date.now()}.tmp`);
+  try {
+    await db.backupTo(tmp);
+    const name = `bsc-stats-backup-${new Date().toISOString().slice(0, 10)}.db`;
+    res.download(tmp, name, () => fs.unlink(tmp, () => {}));
+  } catch (err) {
+    fs.unlink(tmp, () => {});
+    console.error('Backup failed:', err);
+    res.status(500).send('Backup failed');
+  }
+});
+
+// ── Backup: restore (replaces ALL data) ───────────────────────────────────────
+// Body = raw .db file. Admin password is sent in the X-Admin-Password header.
+router.post('/backup/restore', express.raw({ type: 'application/octet-stream', limit: '100mb' }), async (req, res) => {
+  const t = req.t;
+  if ((req.get('x-admin-password') || '') !== (process.env.ADMIN_PASSWORD || '')) {
+    return res.status(403).json({ ok: false, error: t('delete_confirm_wrong_pw') });
+  }
+  if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+    return res.status(400).json({ ok: false, error: t('backup_restore_invalid') });
+  }
+
+  const tmp = path.join(db.DATA_DIR, `upload-${Date.now()}.tmp`);
+  try {
+    fs.writeFileSync(tmp, req.body);
+    if (!db.validateBackupFile(tmp)) {
+      return res.status(400).json({ ok: false, error: t('backup_restore_invalid') });
+    }
+
+    // Safety copy of the current data (keep the 3 most recent)
+    await db.backupTo(path.join(db.DATA_DIR, `pre-restore-${new Date().toISOString().replace(/[:.]/g, '-')}.db`));
+    fs.readdirSync(db.DATA_DIR).filter(f => f.startsWith('pre-restore-')).sort().reverse().slice(3)
+      .forEach(f => fs.unlinkSync(path.join(db.DATA_DIR, f)));
+
+    db.restoreFrom(tmp);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Restore failed:', err);
+    res.status(500).json({ ok: false, error: t('backup_restore_failed') });
+  } finally {
+    fs.unlink(tmp, () => {});
+  }
+});
 
 // ── Password verification (used by delete confirm modal) ──────────────────────
 router.post('/verify-password', (req, res) => {

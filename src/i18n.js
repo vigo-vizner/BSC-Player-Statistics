@@ -99,6 +99,29 @@ const translations = {
     delete_confirm_wrong_pw:'Wrong password — try again.',
     delete_confirm_btn:     'Delete',
 
+    // Admin — Backup
+    backup:                 'Backup',
+    backup_download_title:  'Download backup',
+    backup_download_desc:   'Saves a copy of all app data as a single file (.db) to your device. Keep it somewhere safe, e.g. cloud drive or e-mail. Doing this once a week is a good habit.',
+    backup_download_inc:    'Included: categories, players, seasons, matches, scores and every recorded stat.',
+    backup_download_exc:    'Not included: login sessions and the admin password (those are server settings).',
+    backup_download_effect: 'Effect: nothing changes in the app — it is only a read-only copy, safe to do at any time, even during a match.',
+    backup_db_size:         'Current data size',
+    backup_download_btn:    'Download backup',
+    backup_restore_title:   'Restore from backup',
+    backup_restore_desc:    'Loads a previously downloaded backup file (.db) back into the app.',
+    backup_restore_effect1: 'ALL current data (players, seasons, matches, stats) is replaced by the contents of the file.',
+    backup_restore_effect2: 'Anything entered after that backup was made is lost — unless you download a fresh backup first.',
+    backup_restore_effect3: 'Before replacing, the app automatically keeps a safety copy of the current data on the server (last 3 are kept).',
+    backup_restore_effect4: 'Do not restore while a match is being recorded — open match screens may show outdated data until reloaded.',
+    backup_restore_btn:     'Restore',
+    backup_restore_confirm_title: 'Confirm Restore',
+    backup_restore_confirm_text:  'This will replace ALL current data with the selected backup. This cannot be undone from the app.',
+    backup_restore_no_file: 'Please choose a backup (.db) file first.',
+    backup_restore_invalid: 'This file is not a valid backup of this app.',
+    backup_restore_failed:  'Restore failed. Your current data was not changed.',
+    backup_restore_done:    'Backup restored.',
+
 
 
     // Live match
@@ -167,8 +190,8 @@ const translations = {
 
     tour_admin_welcome_t:  'Admin area',
     tour_admin_welcome_d:  'Set up your data here. Recommended order: Categories → Players → Season → Matches.',
-    tour_admin_tabs_t:     'Three sections',
-    tour_admin_tabs_d:     'Players, Seasons & Matches, and Categories each have their own tab.',
+    tour_admin_tabs_t:     'Four sections',
+    tour_admin_tabs_d:     'Players, Seasons & Matches, Categories and Backup each have their own tab.',
     tour_admin_add_t:      'Add new items',
     tour_admin_add_d:      'Use this button to add a player, season or category, depending on the tab.',
     tour_admin_addmatch_t: 'Add a match',
@@ -300,6 +323,29 @@ const translations = {
     delete_confirm_wrong_pw:'Nesprávne heslo — skúste znova.',
     delete_confirm_btn:     'Vymazať',
 
+    // Admin — Backup
+    backup:                 'Záloha',
+    backup_download_title:  'Stiahnuť zálohu',
+    backup_download_desc:   'Uloží kópiu všetkých dát aplikácie ako jeden súbor (.db) do vášho zariadenia. Uschovajte ho na bezpečné miesto, napr. cloudové úložisko alebo e-mail. Dobrý zvyk je robiť to raz týždenne.',
+    backup_download_inc:    'Obsahuje: kategórie, hráčov, sezóny, zápasy, skóre a všetky zaznamenané štatistiky.',
+    backup_download_exc:    'Neobsahuje: prihlasovacie relácie a admin heslo (to sú nastavenia servera).',
+    backup_download_effect: 'Dôsledok: v aplikácii sa nič nezmení — ide len o kópiu na čítanie, dá sa robiť kedykoľvek, aj počas zápasu.',
+    backup_db_size:         'Aktuálna veľkosť dát',
+    backup_download_btn:    'Stiahnuť zálohu',
+    backup_restore_title:   'Obnoviť zo zálohy',
+    backup_restore_desc:    'Nahrá predtým stiahnutý záložný súbor (.db) späť do aplikácie.',
+    backup_restore_effect1: 'VŠETKY aktuálne dáta (hráči, sezóny, zápasy, štatistiky) sa nahradia obsahom súboru.',
+    backup_restore_effect2: 'Všetko, čo bolo zadané po vytvorení zálohy, sa stratí — pokiaľ si najprv nestiahnete novú zálohu.',
+    backup_restore_effect3: 'Pred nahradením aplikácia automaticky ponechá bezpečnostnú kópiu aktuálnych dát na serveri (uchovávajú sa posledné 3).',
+    backup_restore_effect4: 'Neobnovujte počas zadávania zápasu — otvorené obrazovky zápasu môžu zobrazovať zastarané dáta, kým sa neobnovia.',
+    backup_restore_btn:     'Obnoviť',
+    backup_restore_confirm_title: 'Potvrdiť obnovenie',
+    backup_restore_confirm_text:  'Týmto sa VŠETKY aktuálne dáta nahradia vybranou zálohou. Z aplikácie sa to nedá vrátiť späť.',
+    backup_restore_no_file: 'Najprv vyberte záložný súbor (.db).',
+    backup_restore_invalid: 'Tento súbor nie je platná záloha tejto aplikácie.',
+    backup_restore_failed:  'Obnovenie zlyhalo. Vaše aktuálne dáta sa nezmenili.',
+    backup_restore_done:    'Záloha bola obnovená.',
+
 
 
     // Live match
@@ -367,8 +413,8 @@ const translations = {
 
     tour_admin_welcome_t:  'Administrácia',
     tour_admin_welcome_d:  'Tu nastavíte svoje dáta. Odporúčané poradie: Kategórie → Hráči → Sezóna → Zápasy.',
-    tour_admin_tabs_t:     'Tri sekcie',
-    tour_admin_tabs_d:     'Hráči, Sezóny a zápasy a Kategórie majú každá vlastnú záložku.',
+    tour_admin_tabs_t:     'Štyri sekcie',
+    tour_admin_tabs_d:     'Hráči, Sezóny a zápasy, Kategórie a Záloha majú každá vlastnú záložku.',
     tour_admin_add_t:      'Pridať nové položky',
     tour_admin_add_d:      'Týmto tlačidlom pridáte hráča, sezónu alebo kategóriu podľa záložky.',
     tour_admin_addmatch_t: 'Pridať zápas',

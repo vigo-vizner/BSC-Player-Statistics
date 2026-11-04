@@ -554,6 +554,19 @@ body.login-page {
 .admin-tab:hover { color: var(--bsc-blue); }
 .admin-tab.active { color: var(--bsc-blue); border-bottom-color: var(--bsc-yellow); }
 
+/* ── Backup tab ──────────────────────────────────────────────────────────── */
+.backup-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 1.1rem 1.25rem; margin-bottom: 1.25rem;
+  display: flex; flex-direction: column; gap: .6rem; align-items: flex-start;
+}
+.backup-card h3 { font-size: 1.1rem; color: var(--bsc-blue); }
+.backup-card ul { margin: 0; padding-left: 1.2rem; font-size: .9rem; display: flex; flex-direction: column; gap: .3rem; }
+.backup-card p { font-size: .9rem; }
+.backup-card--warn { border-left: 4px solid var(--red); }
+.backup-meta { color: var(--muted); }
+.backup-restore-row { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; }
+
 /* ── Admin tab panels ────────────────────────────────────────────────────── */
 .admin-panel { display: none; }
 .admin-panel.active { display: block; }

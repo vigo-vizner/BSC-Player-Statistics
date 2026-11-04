@@ -600,3 +600,54 @@ document.addEventListener('keydown', e => {
     submitDeleteConfirm();
   }
 });
+
+/* ── Backup restore ───────────────────────────────────────────────────────── */
+function openRestoreConfirm() {
+  const msg = window._backupMsg || {};
+  const input = document.getElementById('restore-file');
+  const fileErr = document.getElementById('restore-file-error');
+  fileErr.classList.add('hidden');
+  if (!input.files || !input.files[0]) {
+    fileErr.textContent = msg.noFile || '';
+    fileErr.classList.remove('hidden');
+    return;
+  }
+  document.getElementById('restore-confirm-label').textContent = input.files[0].name;
+  document.getElementById('restore-confirm-pw').value = '';
+  document.getElementById('restore-confirm-error').classList.add('hidden');
+  openModal('modal-restore');
+  setTimeout(() => document.getElementById('restore-confirm-pw').focus(), 100);
+}
+
+async function submitRestore() {
+  const msg = window._backupMsg || {};
+  const file = document.getElementById('restore-file').files[0];
+  const errEl = document.getElementById('restore-confirm-error');
+  const btn = document.getElementById('restore-confirm-btn');
+  if (!file) return;
+
+  btn.disabled = true;
+  errEl.classList.add('hidden');
+  try {
+    const res = await fetch('/admin/backup/restore', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'X-Admin-Password': document.getElementById('restore-confirm-pw').value,
+      },
+      body: file,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.ok) {
+      alert(msg.done || 'OK');
+      window.location.href = '/admin?tab=backup';
+      return;
+    }
+    errEl.textContent = data.error || msg.failed || 'Error';
+    errEl.classList.remove('hidden');
+  } catch (_) {
+    errEl.textContent = msg.failed || 'Error';
+    errEl.classList.remove('hidden');
+  }
+  btn.disabled = false;
+}

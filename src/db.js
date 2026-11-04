@@ -217,7 +217,60 @@ const getSeasonPtsByPlayer = (seasonId) => {
   return map;
 };
 
+// ── Backup / restore ──────────────────────────────────────────────────────────
+const DB_FILE = path.join(DATA_DIR, 'stats.db');
+// Parents first (insert order); reversed for deletes.
+const RESTORE_TABLES  = ['categories', 'players', 'player_categories', 'seasons', 'matches', 'stats'];
+const REQUIRED_TABLES = ['categories', 'players', 'seasons', 'matches', 'stats'];
+
+// Consistent snapshot of the live DB (safe with WAL). Returns a Promise.
+const backupTo = (file) => db.backup(file);
+
+// True if `file` is a healthy SQLite DB that contains the app's core tables.
+const validateBackupFile = (file) => {
+  let src;
+  try {
+    src = new Database(file, { readonly: true, fileMustExist: true });
+    const tables = src.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(r => r.name);
+    if (!REQUIRED_TABLES.every(t => tables.includes(t))) return false;
+    return src.pragma('integrity_check', { simple: true }) === 'ok';
+  } catch (_) {
+    return false;
+  } finally {
+    if (src) src.close();
+  }
+};
+
+// Replaces ALL app data with the contents of `file` in a single transaction.
+// Only columns present in both DBs are copied, so older backups restore into a newer schema.
+const restoreFrom = (file) => {
+  db.pragma('foreign_keys = OFF'); // cannot be changed inside a transaction
+  db.prepare('ATTACH DATABASE ? AS src').run(file);
+  try {
+    const srcTables = new Set(
+      db.prepare("SELECT name FROM src.sqlite_master WHERE type='table'").all().map(r => r.name)
+    );
+    db.transaction(() => {
+      for (const t of [...RESTORE_TABLES].reverse()) db.prepare(`DELETE FROM main.${t}`).run();
+      db.prepare(`DELETE FROM main.sqlite_sequence WHERE name IN (${RESTORE_TABLES.map(() => '?').join(',')})`)
+        .run(...RESTORE_TABLES);
+      for (const t of RESTORE_TABLES) {
+        if (!srcTables.has(t)) continue;
+        const srcCols = new Set(db.prepare(`PRAGMA src.table_info(${t})`).all().map(c => c.name));
+        const cols = db.prepare(`PRAGMA main.table_info(${t})`).all()
+          .map(c => c.name).filter(c => srcCols.has(c)).map(c => `"${c}"`).join(',');
+        db.prepare(`INSERT INTO main.${t} (${cols}) SELECT ${cols} FROM src.${t}`).run();
+      }
+      if (db.pragma('foreign_key_check').length > 0) throw new Error('Backup contains inconsistent data');
+    })();
+  } finally {
+    try { db.exec('DETACH DATABASE src'); } catch (_) { /* ignore */ }
+    db.pragma('foreign_keys = ON');
+  }
+};
+
 module.exports = {
+  DATA_DIR, DB_FILE, backupTo, validateBackupFile, restoreFrom,
   getCategories, getCategory, insertCategory, updateCategory, deleteCategory,
   getPlayerCategoryIds, setPlayerCategories,
   getPlayers, getActivePlayers, getActivePlayersByCat, insertPlayer, updatePlayer, deletePlayer,
