@@ -70,14 +70,17 @@ src/
   db.js              — SQLite database + all queries
   middleware/
     auth.js          — Session auth guard
+  stats.js           — Stat types, points, shooting %, per-game averages (pure functions)
   routes/
     login.js         — Login / logout
     dashboard.js     — Seasons & matches overview
     admin.js         — Player / season / match CRUD
-    match.js         — Live stat entry (AJAX)
+    match.js         — Live stat entry (AJAX), match roster
+    players.js       — Players list + per-player averages, shooting and game log
     summary.js       — Match & season summaries + CSV export
   views/
     layout.js        — Shared HTML layout
+    playerTables.js  — Averages / totals tables
   public/
     css/app.css      — Styles
     js/app.js        — Client-side interactions
@@ -86,11 +89,12 @@ data/                — SQLite DB files (created at runtime)
 
 ## Stats tracked per player per match
 
-| Button | Meaning              |
-|--------|----------------------|
-| 1PT    | 1-point free throw   |
-| 2PT    | 2-point field goal   |
-| 3PT    | 3-point shot         |
+| Button | Meaning                    |
+|--------|----------------------------|
+| 1PT    | 1-point free throw made    |
+| 2PT    | 2-point field goal made    |
+| 3PT    | 3-point shot made          |
+| FT✗ / 2PT✗ / 3PT✗ | Missed free throw / 2-pointer / 3-pointer (0 points) |
 | OReb   | Offensive rebound    |
 | DReb   | Defensive rebound    |
 | AST    | Assist               |

@@ -5,11 +5,7 @@ const router   = express.Router();
 const db       = require('../db');
 const { layout } = require('../views/layout');
 const { buildTour } = require('../tour');
-
-
-function esc(str) {
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+const { esc } = require('../util');
 
 function catOptions(categories, selectedId, t) {
   const none = `<option value="">${t('uncategorized')}</option>`;
@@ -44,8 +40,8 @@ router.get('/', (req, res) => {
       <td class="c-grow">${esc(c.name)}</td>
       <td data-label="${esc(t('sort_order'))}">${c.sort_order}</td>
       <td class="c-actions">
-        <button class="btn btn-sm" onclick="openEditCategory(${c.id},'${esc(c.name)}',${c.sort_order})">${t('edit')}</button>
-        <button class="btn btn-sm btn-danger" onclick="openDeleteConfirm('/admin/category/${c.id}/delete?tab=categories','${t('delete_confirm_what')}: ${esc(c.name)}')">${t('delete')}</button>
+        <button class="btn btn-sm" data-action="edit-category" data-id="${c.id}" data-name="${esc(c.name)}" data-sort="${c.sort_order}">${t('edit')}</button>
+        <button class="btn btn-sm btn-danger" data-action="delete" data-url="/admin/category/${c.id}/delete?tab=categories" data-label="${esc(t('delete_confirm_what') + ': ' + c.name)}">${t('delete')}</button>
       </td>
     </tr>`).join('');
 
@@ -77,8 +73,8 @@ router.get('/', (req, res) => {
         <td class="c-grow">${esc(p.name)}</td>
         <td><span class="badge ${p.active ? 'badge-green' : 'badge-gray'}">${p.active ? t('active') : t('inactive')}</span></td>
         <td class="c-actions">
-          <button class="btn btn-sm" onclick="openEditPlayer(${p.id},'${esc(p.name)}','${esc(p.number)}',${p.active},${esc(catIds)})">${t('edit')}</button>
-          <button class="btn btn-sm btn-danger" onclick="openDeleteConfirm('/admin/player/${p.id}/delete?tab=players','${t('delete_confirm_what')}: #${esc(p.number)} ${esc(p.name)}')">${t('delete')}</button>
+          <button class="btn btn-sm" data-action="edit-player" data-id="${p.id}" data-name="${esc(p.name)}" data-number="${esc(p.number)}" data-active="${p.active ? 1 : 0}" data-categories="${esc(catIds)}">${t('edit')}</button>
+          <button class="btn btn-sm btn-danger" data-action="delete" data-url="/admin/player/${p.id}/delete?tab=players" data-label="${esc(t('delete_confirm_what') + ': #' + p.number + ' ' + p.name)}">${t('delete')}</button>
         </td>
       </tr>`;
     }).join('');
@@ -116,12 +112,12 @@ router.get('/', (req, res) => {
           <td>${typeBadge}${tournLabel}</td>
           <td><span class="badge ${m.status === 'closed' ? 'badge-red' : 'badge-green'}">${m.status === 'closed' ? `🔒 ${t('closed')}` : t('open')}</span></td>
           <td class="c-actions">
-            <button class="btn btn-sm" onclick="openEditMatch(${m.id},'${esc(m.opponent)}','${m.match_date}','${esc(m.location)}','${m.match_type || 'league'}','${esc(m.tournament_name || '')}')">${t('edit')}</button>
+            <button class="btn btn-sm" data-action="edit-match" data-id="${m.id}" data-opponent="${esc(m.opponent)}" data-date="${esc(m.match_date)}" data-location="${esc(m.location)}" data-type="${esc(m.match_type || 'league')}" data-tournament="${esc(m.tournament_name || '')}">${t('edit')}</button>
             ${m.status === 'closed'
               ? `<form method="POST" action="/match/${m.id}/reopen?tab=seasons" style="display:inline"><button class="btn btn-sm btn-primary">${t('reopen')}</button></form>`
-              : `<form method="POST" action="/match/${m.id}/close?tab=seasons" style="display:inline" onsubmit="return confirm('${t('confirm_close_match')}')"><button class="btn btn-sm btn-warning">${t('close_match')}</button></form>`
+              : `<form method="POST" action="/match/${m.id}/close?tab=seasons" style="display:inline" data-confirm="${esc(t('confirm_close_match'))}"><button class="btn btn-sm btn-warning">${t('close_match')}</button></form>`
             }
-            <button class="btn btn-sm btn-danger" onclick="openDeleteConfirm('/admin/match/${m.id}/delete?tab=seasons','${t('delete_confirm_what')}: ${esc(m.opponent)} ${m.match_date}')">${t('delete')}</button>
+            <button class="btn btn-sm btn-danger" data-action="delete" data-url="/admin/match/${m.id}/delete?tab=seasons" data-label="${esc(t('delete_confirm_what') + ': ' + m.opponent + ' ' + m.match_date)}">${t('delete')}</button>
           </td>
         </tr>`;
       }).join('');
@@ -131,8 +127,8 @@ router.get('/', (req, res) => {
         <div class="season-header">
           <h3>${esc(s.name)}</h3>
           <div class="btn-group">
-            <button class="btn btn-sm" onclick="openEditSeason(${s.id},'${esc(s.name)}',${s.category_id || 'null'})">${t('edit_season')}</button>
-            <button class="btn btn-sm btn-danger" onclick="openDeleteConfirm('/admin/season/${s.id}/delete?tab=seasons','${t('delete_confirm_what')}: ${esc(s.name)}')">${t('delete_season')}</button>
+            <button class="btn btn-sm" data-action="edit-season" data-id="${s.id}" data-name="${esc(s.name)}" data-category="${s.category_id || ''}">${t('edit_season')}</button>
+            <button class="btn btn-sm btn-danger" data-action="delete" data-url="/admin/season/${s.id}/delete?tab=seasons" data-label="${esc(t('delete_confirm_what') + ': ' + s.name)}">${t('delete_season')}</button>
             <button class="btn btn-sm btn-primary" onclick="openAddMatch(${s.id})">${t('add_match')}</button>
           </div>
         </div>
@@ -371,7 +367,7 @@ router.post('/category/add', (req, res) => {
 });
 router.post('/category/:id/edit', (req, res) => {
   const { name, sort_order } = req.body;
-  db.updateCategory(req.params.id, name.trim(), parseInt(sort_order) || 0);
+  if (name && name.trim()) db.updateCategory(req.params.id, name.trim(), parseInt(sort_order) || 0);
   adminRedirect(res, req, 'categories');
 });
 router.post('/category/:id/delete', (req, res) => {
@@ -396,8 +392,10 @@ router.post('/player/add', (req, res) => {
 });
 router.post('/player/:id/edit', (req, res) => {
   const { name, number, active, category_ids } = req.body;
-  db.updatePlayer(req.params.id, name.trim(), (number || '').trim(), active ? 1 : 0);
-  db.setPlayerCategories(req.params.id, parseCategoryIds(category_ids));
+  if (name && name.trim()) {
+    db.updatePlayer(req.params.id, name.trim(), (number || '').trim(), active ? 1 : 0);
+    db.setPlayerCategories(req.params.id, parseCategoryIds(category_ids));
+  }
   adminRedirect(res, req, 'players');
 });
 router.post('/player/:id/delete', (req, res) => {
@@ -413,7 +411,7 @@ router.post('/season/add', (req, res) => {
 });
 router.post('/season/:id/edit', (req, res) => {
   const { name, category_id } = req.body;
-  db.updateSeason(req.params.id, name.trim(), category_id || null);
+  if (name && name.trim()) db.updateSeason(req.params.id, name.trim(), category_id || null);
   adminRedirect(res, req, 'seasons');
 });
 router.post('/season/:id/delete', (req, res) => {
@@ -424,12 +422,16 @@ router.post('/season/:id/delete', (req, res) => {
 // ── Matches ───────────────────────────────────────────────────────────────────
 router.post('/match/add', (req, res) => {
   const { season_id, opponent, match_date, location, match_type, tournament_name } = req.body;
-  db.insertMatch(season_id, opponent.trim(), match_date, (location || '').trim(), match_type, (tournament_name || '').trim());
+  if (season_id && opponent && opponent.trim() && match_date) {
+    db.insertMatch(season_id, opponent.trim(), match_date, (location || '').trim(), match_type, (tournament_name || '').trim());
+  }
   adminRedirect(res, req, 'seasons');
 });
 router.post('/match/:id/edit', (req, res) => {
   const { opponent, match_date, location, match_type, tournament_name } = req.body;
-  db.updateMatch(req.params.id, opponent.trim(), match_date, (location || '').trim(), match_type, (tournament_name || '').trim());
+  if (opponent && opponent.trim() && match_date) {
+    db.updateMatch(req.params.id, opponent.trim(), match_date, (location || '').trim(), match_type, (tournament_name || '').trim());
+  }
   adminRedirect(res, req, 'seasons');
 });
 router.post('/match/:id/delete', (req, res) => {
@@ -456,7 +458,7 @@ router.get('/backup/download', async (req, res) => {
 // Body = raw .db file. Admin password is sent in the X-Admin-Password header.
 router.post('/backup/restore', express.raw({ type: 'application/octet-stream', limit: '100mb' }), async (req, res) => {
   const t = req.t;
-  if ((req.get('x-admin-password') || '') !== (process.env.ADMIN_PASSWORD || '')) {
+  if (!process.env.ADMIN_PASSWORD || (req.get('x-admin-password') || '') !== process.env.ADMIN_PASSWORD) {
     return res.status(403).json({ ok: false, error: t('delete_confirm_wrong_pw') });
   }
   if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
@@ -487,7 +489,7 @@ router.post('/backup/restore', express.raw({ type: 'application/octet-stream', l
 
 // ── Password verification (used by delete confirm modal) ──────────────────────
 router.post('/verify-password', (req, res) => {
-  const ok = (req.body.password || '') === (process.env.ADMIN_PASSWORD || '');
+  const ok = !!process.env.ADMIN_PASSWORD && (req.body.password || '') === process.env.ADMIN_PASSWORD;
   res.json({ ok });
 });
 

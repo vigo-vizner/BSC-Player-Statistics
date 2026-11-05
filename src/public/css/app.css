@@ -1,5 +1,4 @@
-/* ── Google Font ─────────────────────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap');
+/* Fonts (Barlow, Barlow Condensed) are self-hosted: loaded via <link href="/fonts/fonts.css"> in each page head. */
 
 /* ── Reset & base ─────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -367,15 +366,26 @@ body.login-page {
 .stat-btn:active { transform: scale(.92); }
 .stat-btn.has-val { background: #fffacc; color: var(--bsc-blue); }
 .stat-btn.flash { background: var(--bsc-yellow) !important; color: var(--bsc-blue); }
+/* Missed shots: reddish so they are never confused with made shots */
+.stat-btn.is-miss { background: #fdf0f0; color: #9b2c2c; }
+.stat-btn.is-miss:hover { background: #fbdede; }
+.stat-btn.is-miss.has-val { background: #fbd5d5; color: #9b1c1c; }
+.live-table th.stat-col.is-miss { color: #fecaca; }
 
 /* ── Accordion row ───────────────────────────────────────────────────────── */
 .accord-row td { padding: 0; border-bottom: 2px solid var(--bsc-yellow); }
 .accord-cell { padding: .6rem !important; background: #f8f9ff !important; }
+/* 6 columns: the three made shots span 2 columns each (row 1), the three misses too (row 2),
+   then six other stats, then PF. Shots are tapped the most, so they get the biggest buttons. */
 .accord-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: .4rem;
 }
+.accord-btn.accord-shot { grid-column: span 2; }
+.accord-btn:last-child { grid-column: span 2; }
+/* Edit mode: each cell holds − / count / + (~100px), so use as many columns as fit */
+.accord-grid.accord-edit { grid-template-columns: repeat(auto-fill, minmax(106px, 1fr)); }
 .accord-btn {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   height: 58px; border-radius: 8px; border: none;
@@ -444,6 +454,43 @@ body.login-page {
 .summary-table { min-width: 560px; }
 .summary-table td, .summary-table th { text-align: center; }
 .summary-table td:first-child, .summary-table th:first-child { text-align: left; white-space: nowrap; }
+.summary-table tr.total-row td { font-weight: 800; background: #f5f7fb; border-top: 2px solid var(--border); }
+.summary-table .col-sep { border-left: 2px solid var(--border); }
+.dim { color: var(--muted); font-size: .85em; }
+.summary-table td a { font-weight: 600; }
+.summary-note { color: var(--muted); font-size: .8rem; margin: .5rem 0 0; }
+.summary-subtitle { font-size: 1.1rem; color: var(--bsc-blue); margin: 1.25rem 0 .5rem; }
+
+/* ── Match roster picker ─────────────────────────────────────────────────── */
+.roster-box {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: .5rem .75rem; margin-bottom: .75rem;
+}
+.roster-box summary { cursor: pointer; font-weight: 600; font-size: .9rem; color: var(--bsc-blue); }
+.roster-count { color: var(--muted); font-weight: 400; }
+.roster-box form { display: flex; flex-direction: column; gap: .6rem; margin-top: .6rem; }
+.roster-hint { color: var(--muted); font-size: .8rem; }
+.roster-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: .3rem .75rem; }
+.roster-item { display: flex; align-items: center; gap: .4rem; font-size: .9rem; padding: .3rem 0; cursor: pointer; }
+.roster-item input { width: 1.1rem; height: 1.1rem; }
+.roster-item--locked { opacity: .65; cursor: default; }
+.roster-box .btn { align-self: flex-start; }
+
+/* ── Player stat cards (players page) ────────────────────────────────────── */
+.player-hero {
+  display: flex; align-items: baseline; gap: .75rem; flex-wrap: wrap;
+}
+.player-hero .p-num { font-size: 1.1rem; }
+.stat-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: .6rem; margin: 1rem 0; }
+.stat-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: .6rem .5rem; text-align: center; box-shadow: var(--shadow);
+}
+.stat-card-val { font-family: 'Barlow Condensed', system-ui, sans-serif; font-size: 1.7rem; font-weight: 800; color: var(--bsc-blue); line-height: 1.1; }
+.stat-card-lbl { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-weight: 600; }
+.stat-card-sub { font-size: .72rem; color: var(--muted); }
+
+
 
 /* ── Modal ───────────────────────────────────────────────────────────────── */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 200; }
@@ -468,6 +515,11 @@ body.login-page {
   transition: background .3s;
 }
 .sync-dot--on  { background: #22c55e; box-shadow: 0 0 0 2px rgba(34,197,94,.25); }
+.pending-badge {
+  display: inline-block; margin-left: .5rem; padding: .1rem .5rem; border-radius: 999px;
+  background: #fef3c7; color: #92400e; font-size: .75rem; font-weight: 600; vertical-align: middle;
+}
+
 .sync-dot--off { background: #94a3b8; }
 /* ── Interactive guide ───────────────────────────────────────────────────── */
 .tour-btn {
@@ -711,9 +763,7 @@ select:focus { outline: none; border-color: var(--bsc-yellow); box-shadow: 0 0 0
   /* Expanded accordion row fills full width */
   .accord-row.hidden { display: none; }
   .accord-row { display: table-row; }
-  .accord-grid { grid-template-columns: repeat(5, 1fr); gap: .35rem; }
-  /* Edit mode: each cell holds − / count / + (~100px), so use as many columns as fit instead of a fixed 5 */
-  .accord-grid.accord-edit { grid-template-columns: repeat(auto-fill, minmax(106px, 1fr)); }
+  .accord-grid { gap: .35rem; }
   .accord-btn { height: 62px; }
   .accord-label { font-size: .7rem; }
   .accord-count { font-size: 1.25rem; }

@@ -1,41 +1,32 @@
 const express   = require('express');
 const router    = express.Router();
 const db        = require('../db');
-const { getT }  = require('../i18n');
+const { getT, DEFAULT_LANG } = require('../i18n');
+const { esc } = require('../util');
+const { buildStatMap, pointsOf, reboundsOf, shooting, splitText } = require('../stats');
 
-const STAT_TYPES = ['1pt','2pt','3pt','oreb','dreb','ast','to','blk','stl','pf'];
-
-function esc(str) {
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-function buildStatMap(stats, players) {
-  const map = {};
-  players.forEach(p => { map[p.id] = {}; STAT_TYPES.forEach(t => { map[p.id][t] = 0; }); });
-  stats.forEach(s => { if (map[s.player_id]) map[s.player_id][s.stat_type]++; });
-  return map;
-}
-
-function totalPoints(m) {
-  return (m['1pt']||0)*1 + (m['2pt']||0)*2 + (m['3pt']||0)*3;
-}
-
-function totalReb(m) { return (m['oreb']||0) + (m['dreb']||0); }
+const totalPoints = pointsOf;
+const totalReb    = reboundsOf;
 function totalAst(m) { return m['ast']||0; }
 
-// ── GET /share/match/:id ──────────────────────────────────────────────────────
-router.get('/match/:id', (req, res) => {
-  const lang = req.session?.lang || 'en';
+// ── GET /share/match/:token ───────────────────────────────────────────────────
+// Public (no login). The URL carries an unguessable per-match token, not the sequential id.
+router.get('/match/:token', (req, res) => {
+  const lang = req.session?.lang || DEFAULT_LANG;
   const t    = getT(lang);
 
-  const match = db.getMatch(req.params.id);
+  // Keep shared pages out of search engines and don't leak the token via Referer
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Cache-Control', 'no-store');
+
+  const match = /^[\w-]{16,64}$/.test(req.params.token) ? db.getMatchByShareToken(req.params.token) : null;
   if (!match) return res.status(404).send('Match not found');
 
-  const players  = match.category_id
-    ? db.getActivePlayersByCat(match.category_id)
-    : db.getActivePlayers();
+  const players  = db.getMatchPlayers(match);   // the match roster, else its whole category
   const stats    = db.getStatsByMatch(match.id);
   const statMap  = buildStatMap(stats, players);
+  const tracked  = stats.some(s => s.stat_type.endsWith('_miss')); // misses recorded -> FG is meaningful
 
   const scoreBsc = match.score_bsc || 0;
   const scoreOpp = match.score_opponent || 0;
@@ -50,12 +41,14 @@ router.get('/match/:id', (req, res) => {
     const pts = totalPoints(m);
     const reb = totalReb(m);
     const ast = totalAst(m);
+    const fg  = shooting(m).fg;
     return `
     <tr>
       <td class="sh-player"><span class="sh-num">#${esc(p.number)}</span> ${esc(p.name)}</td>
       <td class="sh-stat"><strong>${pts}</strong><span class="sh-lbl">pts</span></td>
       <td class="sh-stat">${reb}<span class="sh-lbl">reb</span></td>
       <td class="sh-stat">${ast}<span class="sh-lbl">ast</span></td>
+      ${tracked ? `<td class="sh-stat">${splitText(fg)}<span class="sh-lbl">fg</span></td>` : ''}
     </tr>`;
   }).join('');
 
@@ -66,23 +59,26 @@ router.get('/match/:id', (req, res) => {
     const pts = totalPoints(m);
     const reb = totalReb(m);
     const ast = totalAst(m);
-    return `${p.name}: ${pts}pts ${reb}reb${ast > 0 ? ` ${ast}ast` : ''}`;
+    const fg  = shooting(m).fg;
+    return `${p.name}: ${pts}pts ${reb}reb${ast > 0 ? ` ${ast}ast` : ''}${tracked && fg.a > 0 ? ` ${splitText(fg)}fg` : ''}`;
   }).join('\n');
   const shareText = `${header}\n${lines}\n#BSCBratislava`;
 
   const matchTypeBadge = match.match_type && match.match_type !== 'league'
-    ? `<span class="sh-type-badge sh-type-${match.match_type}">${t('match_type_' + match.match_type)}${match.tournament_name ? ` · ${esc(match.tournament_name)}` : ''}</span>`
+    ? `<span class="sh-type-badge sh-type-${esc(match.match_type)}">${t('match_type_' + match.match_type)}${match.tournament_name ? ` · ${esc(match.tournament_name)}` : ''}</span>`
     : '';
 
   const statusBadge = match.status === 'closed'
     ? `<span class="sh-badge sh-badge--closed">🔒 ${t('closed')}</span>`
-    : `<span class="sh-badge sh-badge--live">🟢 Live</span>`;
+    : `<span class="sh-badge sh-badge--live">🟢 ${t('sh_live')}</span>`;
 
   const html = `<!DOCTYPE html>
 <html lang="${lang}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+
   <meta property="og:title" content="BSC vs ${esc(match.opponent)}${hasScore ? ` ${scoreStr}` : ''}">
   <meta property="og:description" content="${esc(shareText.split('\n').slice(1).join(' · '))}">
   <title>BSC vs ${esc(match.opponent)}${hasScore ? ` ${scoreStr}` : ''}</title>
@@ -156,8 +152,7 @@ router.get('/match/:id', (req, res) => {
     /* Footer */
     .sh-footer { text-align: center; font-size: .72rem; color: var(--muted); margin-top: 2rem; border-top: 1px solid var(--border); padding-top: .75rem; }
   </style>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/fonts/fonts.css">
 </head>
 <body>
 <div class="sh-wrap">
@@ -188,24 +183,26 @@ router.get('/match/:id', (req, res) => {
 
   <div class="sh-table-wrap">
     <table>
-      <thead><tr><th>Player</th><th>PTS</th><th>REB</th><th>AST</th></tr></thead>
+      <thead><tr><th>${t('sh_player')}</th><th>${t('sh_pts')}</th><th>${t('sh_reb')}</th><th>${t('sh_ast')}</th>${tracked ? `<th>${t('sh_fg')}</th>` : ''}</tr></thead>
       <tbody>${playerRows}</tbody>
     </table>
   </div>
 
-  <button class="sh-copy-btn" id="copy-btn" onclick="copyShare()">📋 Copy for WhatsApp</button>
+  <button class="sh-copy-btn" id="copy-btn" onclick="copyShare()">${t('sh_copy')}</button>
 
-  <div class="sh-footer">Shared from BSC Bratislava Player Statistics</div>
+  <div class="sh-footer">${t('sh_footer')}</div>
 </div>
 
 <script>
-const _shareText = ${JSON.stringify(shareText)};
+const _shareText = ${JSON.stringify(shareText).replace(/</g, '\\u003c')};
+const _lblCopy = ${JSON.stringify(t('sh_copy'))};
+const _lblCopied = ${JSON.stringify(t('sh_copied'))};
 function copyShare() {
   const btn = document.getElementById('copy-btn');
   navigator.clipboard.writeText(_shareText).then(() => {
-    btn.textContent = '✓ Copied!';
+    btn.textContent = _lblCopied;
     btn.classList.add('copied');
-    setTimeout(() => { btn.textContent = '📋 Copy for WhatsApp'; btn.classList.remove('copied'); }, 2500);
+    setTimeout(() => { btn.textContent = _lblCopy; btn.classList.remove('copied'); }, 2500);
   }).catch(() => {
     // Fallback for older browsers
     const ta = document.createElement('textarea');
@@ -214,9 +211,9 @@ function copyShare() {
     document.body.appendChild(ta); ta.select();
     document.execCommand('copy');
     document.body.removeChild(ta);
-    btn.textContent = '✓ Copied!';
+    btn.textContent = _lblCopied;
     btn.classList.add('copied');
-    setTimeout(() => { btn.textContent = '📋 Copy for WhatsApp'; btn.classList.remove('copied'); }, 2500);
+    setTimeout(() => { btn.textContent = _lblCopy; btn.classList.remove('copied'); }, 2500);
   });
 }
 </script>

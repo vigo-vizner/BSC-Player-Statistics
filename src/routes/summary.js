@@ -2,40 +2,35 @@ const express  = require('express');
 const router   = express.Router();
 const db       = require('../db');
 const { layout } = require('../views/layout');
+const { esc, toCsv } = require('../util');
+const { averagesTable, totalsTable } = require('../views/playerTables');
+const {
+  STAT_TYPES, STAT_KEYS, buildStatMap, pointsOf, shooting, splitText, avgText,
+  buildPlayerGames, summarize,
+} = require('../stats');
 
-const STAT_TYPES = ['1pt','2pt','3pt','oreb','dreb','ast','to','blk','stl','pf'];
-const STAT_KEYS  = { '1pt':'stat_1pt','2pt':'stat_2pt','3pt':'stat_3pt','oreb':'stat_oreb','dreb':'stat_dreb','ast':'stat_ast','to':'stat_to','blk':'stat_blk','stl':'stat_stl','pf':'stat_pf' };
+/** Made/attempted columns shown next to the counts. Only meaningful if misses were recorded. */
+const SPLIT_COLS = [['fg', 'FG'], ['p3', '3P'], ['ft', 'FT']];
 
-function esc(str) {
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-function buildStatMap(stats, players) {
-  const map = {};
-  players.forEach(p => { map[p.id] = {}; STAT_TYPES.forEach(t => { map[p.id][t] = 0; }); });
-  stats.forEach(s => { if (map[s.player_id]) map[s.player_id][s.stat_type]++; });
-  return map;
-}
-
-function totalPoints(m) {
-  return (m['1pt']||0)*1 + (m['2pt']||0)*2 + (m['3pt']||0)*3;
-}
-
-function buildSummaryTable(statMap, players, t) {
+function buildSummaryTable(statMap, players, t, tracked) {
   const rows = players.map(p => {
     const m = statMap[p.id] || {};
     if (STAT_TYPES.every(st => !m[st])) return null;
-    const pts  = totalPoints(m);
+    const sh = shooting(m);
     const cells = STAT_TYPES.map(st => `<td>${m[st] || 0}</td>`).join('');
-    return `<tr><td>#${esc(p.number)} ${esc(p.name)}</td><td><strong>${pts}</strong></td>${cells}</tr>`;
-  }).filter(Boolean).join('') || `<tr><td colspan="12" class="empty">${t('no_data')}</td></tr>`;
+    const splits = SPLIT_COLS.map(([k], i) => `<td${i === 0 ? ' class="col-sep"' : ''}>${tracked ? splitText(sh[k]) : '—'}</td>`).join('');
+    return `<tr><td>#${esc(p.number)} ${esc(p.name)}</td><td><strong>${pointsOf(m)}</strong></td>${cells}${splits}</tr>`;
+  }).filter(Boolean).join('') || `<tr><td colspan="${2 + STAT_TYPES.length + SPLIT_COLS.length}" class="empty">${t('no_data')}</td></tr>`;
 
-  const headers = STAT_TYPES.map(st => `<th>${t(STAT_KEYS[st])}</th>`).join('');
+  const headers = STAT_TYPES.map(st => `<th>${t(STAT_KEYS[st])}</th>`).join('')
+    + SPLIT_COLS.map(([, label], i) => `<th${i === 0 ? ' class="col-sep"' : ''}>${label}</th>`).join('');
   return `<div class="summary-wrap"><table class="data-table summary-table">
     <thead><tr><th>${t('player')}</th><th>${t('pts')}</th>${headers}</tr></thead>
     <tbody>${rows}</tbody>
   </table></div>`;
 }
+
+const hasMisses = (stats) => stats.some(s => s.stat_type.endsWith('_miss'));
 
 // ── GET /match/:id/summary ────────────────────────────────────────────────────
 router.get('/match/:id/summary', (req, res) => {
@@ -47,7 +42,7 @@ router.get('/match/:id/summary', (req, res) => {
   const players = db.getPlayers();
   const stats   = db.getStatsByMatch(match.id);
   const statMap = buildStatMap(stats, players);
-  const table   = buildSummaryTable(statMap, players, t);
+  const table   = buildSummaryTable(statMap, players, t, hasMisses(stats));
 
   const closedBadge = match.status === 'closed'
     ? `<span class="badge badge-red">🔒 ${t('closed')}</span>`
@@ -64,10 +59,11 @@ router.get('/match/:id/summary', (req, res) => {
   </div>
   <div class="summary-actions">
     <a href="/match/${match.id}" class="btn">${t('back_to_match')}</a>
-    <a href="/share/match/${match.id}" target="_blank" class="btn btn-primary">🔗 ${t('share')}</a>
+    <a href="/share/match/${esc(match.share_token)}" target="_blank" class="btn btn-primary">🔗 ${t('share')}</a>
     <a href="/match/${match.id}/export.csv" class="btn btn-outline">${t('export_csv')}</a>
   </div>
-  ${table}`;
+  ${table}
+  <p class="summary-note">${t('shooting_note')}</p>`;
 
   res.send(layout(`${t('summary_title')} ${t('vs')} ${match.opponent}`, body, { lang, t }));
 });
@@ -81,21 +77,38 @@ router.get('/match/:id/export.csv', (req, res) => {
   const players = db.getPlayers();
   const stats   = db.getStatsByMatch(match.id);
   const statMap = buildStatMap(stats, players);
+  const tracked = hasMisses(stats);
 
-  const headers = [t('player'), t('jersey'), t('pts'), ...STAT_TYPES.map(st => t(STAT_KEYS[st]))];
+  const headers = [t('player'), t('jersey'), t('pts'), ...STAT_TYPES.map(st => t(STAT_KEYS[st])), 'FGM', 'FGA', '3PM', '3PA', 'FTM', 'FTA'];
   const rows = players
     .filter(p => STAT_TYPES.some(st => (statMap[p.id]||{})[st]))
     .map(p => {
-      const m = statMap[p.id] || {};
-      return [p.name, p.number, totalPoints(m), ...STAT_TYPES.map(st => m[st]||0)].join(',');
+      const m  = statMap[p.id] || {};
+      const sh = shooting(m);
+      const sp = tracked ? [sh.fg.m, sh.fg.a, sh.p3.m, sh.p3.a, sh.ft.m, sh.ft.a] : ['', '', '', '', '', ''];
+      return [p.name, p.number, pointsOf(m), ...STAT_TYPES.map(st => m[st]||0), ...sp];
     });
 
-  const csv = [headers.join(','), ...rows].join('\n');
+  const csv = toCsv([headers, ...rows]);
   const filename = `match_${match.match_date}_vs_${match.opponent.replace(/[^a-zA-Z0-9]/g,'_')}.csv`;
-  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
   res.send(csv);
 });
+
+/** One row per player who played in `matches`: [{ player, s }], best scorer first. */
+function seasonRows(season, matches) {
+  const ids  = new Set(matches.map(m => m.id));
+  const games = buildPlayerGames({
+    matches,
+    grouped:    db.getGroupedStats(season.id).filter(r => ids.has(r.match_id)),
+    rosterRows: db.getRosterRows(season.id).filter(r => ids.has(r.match_id)),
+  });
+  return db.getPlayers()
+    .filter(p => games.has(p.id))
+    .map(p => ({ player: p, s: summarize(games.get(p.id)) }))
+    .sort((a, b) => b.s.avg.pts - a.s.avg.pts || a.player.name.localeCompare(b.player.name));
+}
 
 // ── GET /season/:id/summary ───────────────────────────────────────────────────
 router.get('/season/:id/summary', (req, res) => {
@@ -105,60 +118,50 @@ router.get('/season/:id/summary', (req, res) => {
   const season   = seasons.find(s => s.id == req.params.id);
   if (!season) return res.status(404).send('Season not found');
 
-  const players  = db.getPlayers();
   const matches  = db.getMatchesBySeason(season.id);
-  const statsRaw = db.getStatsBySeasonRaw(season.id);
 
-  // Build a stat map per match type group
+  // Build a section per match type
   const TYPES = ['league', 'tournament', 'friendly'];
   const typeLabels = {
     league:     t('match_type_league'),
     tournament: t('match_type_tournament'),
     friendly:   t('match_type_friendly'),
   };
+  const matchesByType = { league: [], tournament: [], friendly: [] };
+  matches.forEach(m => { (matchesByType[m.match_type || 'league'] || matchesByType.league).push(m); });
 
-  // Group match IDs by type
-  const matchIdsByType = { league: new Set(), tournament: new Set(), friendly: new Set() };
-  const tournamentNames = {}; // matchId -> tournament_name
-  matches.forEach(m => {
-    const mt = m.match_type || 'league';
-    if (matchIdsByType[mt]) matchIdsByType[mt].add(m.id);
-    if (mt === 'tournament' && m.tournament_name) tournamentNames[m.id] = m.tournament_name;
-  });
+  const block = (list) => {
+    const rows = seasonRows(season, list);
+    return `${averagesTable(rows, t)}
+      <details class="roster-box"><summary>${t('totals')}</summary>${totalsTable(rows, list.length, t)}</details>`;
+  };
 
-  // For each type that has matches, build a section
   const sections = TYPES.map(mt => {
-    const ids = matchIdsByType[mt];
-    if (ids.size === 0) return '';
+    const list = matchesByType[mt];
+    if (!list.length) return '';
 
-    const typeStats = statsRaw.filter(s => ids.has(s.match_id));
-    const typeMap   = buildStatMap(typeStats, players);
-    const mCount    = ids.size;
-    const mLabel    = mCount === 1 ? t('matches_count_one') : t('matches_count_other');
+    const mCount = list.length;
+    const mLabel = mCount === 1 ? t('matches_count_one') : t('matches_count_other');
 
     // For tournaments, list tournament names
     let subLabel = `${mCount} ${mLabel}`;
     if (mt === 'tournament') {
-      const names = [...new Set(Object.values(tournamentNames))].filter(Boolean);
+      const names = [...new Set(list.map(m => m.tournament_name))].filter(Boolean);
       if (names.length) subLabel += ` · ${names.map(esc).join(', ')}`;
     }
 
-    const table = buildSummaryTable(typeMap, players, t);
     return `
     <div class="summary-section">
       <div class="summary-section-header">
         <span class="badge badge-type badge-type-${mt}">${typeLabels[mt]}</span>
         <span class="summary-section-meta">${subLabel}</span>
       </div>
-      ${table}
+      ${block(list)}
     </div>`;
   }).join('');
 
-  // Overall combined section
-  const allMap   = buildStatMap(statsRaw, players);
-  const allTable = buildSummaryTable(allMap, players, t);
-  const mCount   = matches.length;
-  const mLabel   = mCount === 1 ? t('matches_count_one') : t('matches_count_other');
+  const mCount = matches.length;
+  const mLabel = mCount === 1 ? t('matches_count_one') : t('matches_count_other');
 
   const body = `
   <div class="page-header">
@@ -169,15 +172,16 @@ router.get('/season/:id/summary', (req, res) => {
     <a href="/dashboard" class="btn">${t('back_to_dashboard')}</a>
     <a href="/season/${season.id}/export.csv" class="btn btn-outline">${t('export_csv')}</a>
   </div>
-  ${TYPES.filter(mt => matchIdsByType[mt].size > 0).length > 1 ? `
+  ${TYPES.filter(mt => matchesByType[mt].length > 0).length > 1 ? `
     <div class="summary-section">
       <div class="summary-section-header">
         <span class="summary-section-title">${t('summary_all')}</span>
         <span class="summary-section-meta">${mCount} ${mLabel}</span>
       </div>
-      ${allTable}
+      ${block(matches)}
     </div>` : ''}
-  ${sections}`;
+  ${sections}
+  <p class="summary-note">${t('shooting_note')}</p>`;
 
   res.send(layout(`${t('season_summary_title')}: ${season.name}`, body, { activePage: 'dashboard', lang, t }));
 });
@@ -189,21 +193,18 @@ router.get('/season/:id/export.csv', (req, res) => {
   const season  = seasons.find(s => s.id == req.params.id);
   if (!season) return res.status(404).send('Not found');
 
-  const players  = db.getPlayers();
-  const statsRaw = db.getStatsBySeasonRaw(season.id);
-  const statMap  = buildStatMap(statsRaw, players);
+  const rows = seasonRows(season, db.getMatchesBySeason(season.id));
 
-  const headers = [t('player'), t('jersey'), t('pts'), ...STAT_TYPES.map(st => t(STAT_KEYS[st]))];
-  const rows = players
-    .filter(p => STAT_TYPES.some(st => (statMap[p.id]||{})[st]))
-    .map(p => {
-      const m = statMap[p.id] || {};
-      return [p.name, p.number, totalPoints(m), ...STAT_TYPES.map(st => m[st]||0)].join(',');
-    });
+  const headers = [t('player'), t('jersey'), t('games_played'), t('pts'), t('avg_pts'), ...STAT_TYPES.map(st => t(STAT_KEYS[st])), 'FGM', 'FGA', '3PM', '3PA', 'FTM', 'FTA'];
+  const data = rows.map(({ player, s }) => {
+    const sh = s.shoot;
+    const sp = s.shootGp ? [sh.fg.m, sh.fg.a, sh.p3.m, sh.p3.a, sh.ft.m, sh.ft.a] : ['', '', '', '', '', ''];
+    return [player.name, player.number, s.gp, s.pts, avgText(s.avg.pts), ...STAT_TYPES.map(st => s.totals[st] || 0), ...sp];
+  });
 
-  const csv = [headers.join(','), ...rows].join('\n');
+  const csv = toCsv([headers, ...data]);
   const filename = `season_${season.name.replace(/[^a-zA-Z0-9]/g,'_')}.csv`;
-  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
   res.send(csv);
 });

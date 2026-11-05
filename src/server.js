@@ -6,7 +6,15 @@ const fs           = require('fs');
 const SQLiteStore  = require('connect-sqlite3')(session);
 
 const { requireAuth } = require('./middleware/auth');
-const { getT }        = require('./i18n');
+const { getT, DEFAULT_LANG } = require('./i18n');
+
+// ── Required secrets: refuse to start with insecure defaults ─────────────────
+const missing = ['ADMIN_PASSWORD', 'SESSION_SECRET'].filter(k => !process.env[k]);
+if (missing.length) {
+  console.error(`Missing required environment variable(s): ${missing.join(', ')}.\n` +
+    'Set them in .env.local (local dev) or in your hosting environment (see README).');
+  process.exit(1);
+}
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -21,7 +29,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(session({
   store: new SQLiteStore({ dir: DATA_DIR, db: 'sessions.db' }),
-  secret: process.env.SESSION_SECRET || 'change-me-in-production',
+  secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: { maxAge: 1000 * 60 * 60 * 12 }, // 12 h
@@ -29,7 +37,7 @@ app.use(session({
 
 // ── i18n: attach t() to every request ────────────────────────────────────────
 app.use((req, res, next) => {
-  const lang = req.session.lang || 'en';
+  const lang = req.session.lang || DEFAULT_LANG;
   req.lang = lang;
   req.t    = getT(lang);
   next();
@@ -55,6 +63,7 @@ app.use(requireAuth);
 
 app.use('/dashboard', require('./routes/dashboard'));
 app.use('/admin',     require('./routes/admin'));
+app.use('/players',   require('./routes/players'));
 app.use('/match',     require('./routes/match'));
 app.use('/',          require('./routes/summary'));   // /match/:id/summary, /season/:id/summary
 

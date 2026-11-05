@@ -1,6 +1,6 @@
 const express    = require('express');
 const router     = express.Router();
-const { getT }   = require('../i18n');
+const { getT, DEFAULT_LANG } = require('../i18n');
 
 const DISCLAIMER = {
   en: {
@@ -28,7 +28,7 @@ const DISCLAIMER = {
 // GET /login
 router.get('/', (req, res) => {
   if (req.session && req.session.authenticated) return res.redirect('/dashboard');
-  const lang      = req.session.lang || 'sk';   // default Slovak
+  const lang      = req.session.lang || DEFAULT_LANG;
   const t         = getT(lang);
   const otherLang = lang === 'en' ? 'sk' : 'en';
   const err       = req.query.err ? `<p class="error">${t('invalid_password')}</p>` : '';
@@ -40,6 +40,7 @@ router.get('/', (req, res) => {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <title>Login — BSC Bratislava</title>
+  <link rel="stylesheet" href="/fonts/fonts.css">
   <link rel="stylesheet" href="/css/app.css">
 </head>
 <body class="login-page">
@@ -80,8 +81,7 @@ router.get('/', (req, res) => {
 
 // POST /login
 router.post('/', (req, res) => {
-  const password = process.env.ADMIN_PASSWORD || 'admin';
-  if (req.body.password === password) {
+  if (req.body.password === process.env.ADMIN_PASSWORD) {
     req.session.authenticated = true;
     return res.redirect('/dashboard');
   }

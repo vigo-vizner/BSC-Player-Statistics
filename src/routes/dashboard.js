@@ -3,10 +3,7 @@ const router   = express.Router();
 const db       = require('../db');
 const { layout } = require('../views/layout');
 const { buildTour } = require('../tour');
-
-function esc(str) {
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+const { esc } = require('../util');
 
 router.get('/', (req, res) => {
   const t          = req.t;
