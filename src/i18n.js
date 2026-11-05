@@ -1,6 +1,8 @@
 // ── Translations ──────────────────────────────────────────────────────────────
 // Add new keys here in both languages. Use snake_case keys.
 
+const DEFAULT_LANG = 'sk';
+
 const translations = {
   en: {
     // General
@@ -24,11 +26,12 @@ const translations = {
     invalid_password:     'Invalid password. Try again.',
 
     // Nav
-    nav_dashboard:        'Dashboard',
+    nav_dashboard:        'Record',
+    nav_players:          'Players',
     nav_admin:            'Admin',
 
     // Dashboard
-    dashboard:            'Dashboard',
+    dashboard:            'Record',
     no_seasons:           'No seasons yet. Go to Admin to create one.',
     live:                 'Live',
     view:                 'View',
@@ -143,12 +146,31 @@ const translations = {
     edit_mode:            '✏️ Edit',
     edit_mode_exit:       '✏️ Exit Edit',
     edit_mode_banner:     '✏️ Edit mode — use − and + to correct stats',
+    nothing_to_remove:    'Nothing to remove',
+    undone:               'Undone ✓',
+    removed:              'Removed ✓',
+    error_retry:          'Error — please retry',
+    session_expired:      'Session expired — please log in again',
+    pending_sync:         '⏳ {n} not sent yet — will retry',
+
+    // Share page
+    sh_player:            'Player',
+    sh_pts:               'PTS',
+    sh_reb:               'REB',
+    sh_ast:               'AST',
+    sh_fg:                'FG',
+    sh_live:              'Live',
+    sh_offline:           'Reconnecting…',
+    sh_copy:              '📋 Copy for WhatsApp',
+    sh_copied:            '✓ Copied!',
+    sh_footer:            'Shared from BSC Bratislava Player Statistics',
+    switch_language:      'Switch language',
 
     // Summary
     summary_title:        'Summary',
     share:                'Share',
     back_to_match:        '← Back to Match',
-    back_to_dashboard:    '← Dashboard',
+    back_to_dashboard:    '← Record',
     export_csv:           'Export CSV',
     matches_count_one:    'match',
     matches_count_other:  'matches',
@@ -165,6 +187,57 @@ const translations = {
     stat_blk:  'BLK',
     stat_stl:  'STL',
     stat_pf:   'PF',
+    stat_1pt_miss: 'FT✗',
+    stat_2pt_miss: '2PT✗',
+    stat_3pt_miss: '3PT✗',
+
+    // Stat explanations (hover on the match table header; glossary on the Record match page)
+    stat_help_title:    'What do the abbreviations mean?',
+    stat_help_1pt:      'Free throw made (1 point)',
+    stat_help_2pt:      'Two-point shot made, from inside the 3-point line (2 points)',
+    stat_help_3pt:      'Three-point shot made, from behind the 3-point line (3 points)',
+    stat_help_1pt_miss: 'Free throw missed',
+    stat_help_2pt_miss: 'Two-point shot missed',
+    stat_help_3pt_miss: 'Three-point shot missed',
+    stat_help_oreb:     'Offensive rebound – grabbing the ball after a teammate\'s missed shot',
+    stat_help_dreb:     'Defensive rebound – grabbing the ball after an opponent\'s missed shot',
+    stat_help_ast:      'Assist – a pass that directly leads to a basket',
+    stat_help_to:       'Turnover – losing the ball to the other team',
+    stat_help_blk:      'Block – stopping an opponent\'s shot',
+    stat_help_stl:      'Steal – taking the ball away from an opponent',
+    stat_help_pf:       'Personal foul – a rule violation involving contact',
+
+    // Match roster
+    roster:            'Who is playing',
+    roster_hint:       'Untick players who are not at this match. Players who already have a stat stay on the list.',
+    roster_has_stats:  'Already has stats in this match',
+
+    // Players pages
+    players_title:     'Players',
+    players_intro:     'Per-game averages from all recorded matches.',
+    all_seasons:       'All seasons',
+    games_played:      'GP',
+    games_played_full: 'Games played',
+    avg_pts:           'PPG',
+    avg_reb:           'RPG',
+    avg_ast:           'APG',
+    avg_stl:           'SPG',
+    avg_blk:           'BPG',
+    avg_to:            'TOPG',
+    avg_pf:            'PFPG',
+    pct_fg:            'FG%',
+    pct_3p:            '3P%',
+    pct_ft:            'FT%',
+    shooting:          'Shooting',
+    shooting_note:     'Shooting is counted only in matches where misses were recorded. If misses were not tracked for a player, the percentages can look higher than they really are.',
+    no_shooting:       'No shooting data yet',
+    totals:            'Totals',
+    averages:          'Averages per game',
+    game_log:          'Game log',
+    no_games:          'No games recorded yet.',
+    team_total:        'Team',
+    back_to_players:   '← Players',
+    season_col:        'Season',
 
     // Interactive guide
     tour_help: 'Show guide',
@@ -191,7 +264,7 @@ const translations = {
     tour_admin_welcome_t:  'Admin area',
     tour_admin_welcome_d:  'Set up your data here. Recommended order: Categories → Players → Season → Matches.',
     tour_admin_tabs_t:     'Four sections',
-    tour_admin_tabs_d:     'Players, Seasons & Matches, Categories and Backup each have their own tab.',
+    tour_admin_tabs_d:     'Categories, Players, Seasons & Matches and Backup each have their own tab.',
     tour_admin_add_t:      'Add new items',
     tour_admin_add_d:      'Use this button to add a player, season or category, depending on the tab.',
     tour_admin_addmatch_t: 'Add a match',
@@ -208,7 +281,7 @@ const translations = {
     tour_m_pin_t:     'Pin a player',
     tour_m_pin_d:     'Star the players who are on court to keep them at the top of the list.',
     tour_m_stats_t:   'Stat buttons',
-    tour_m_stats_d:   'Tap to add one: 1PT, 2PT, 3PT (points), OReb / DReb (rebounds), AST (assist), TO (turnover), BLK (block), STL (steal), PF (personal foul).',
+    tour_m_stats_d:   'Tap to add one: 1PT, 2PT, 3PT (made shots = points), FT✗ / 2PT✗ / 3PT✗ (missed shots), OReb / DReb (rebounds), AST (assist), TO (turnover), BLK (block), STL (steal), PF (personal foul).',
     tour_m_pts_t:     'Points',
     tour_m_pts_d:     'Points are calculated automatically from the 1PT, 2PT and 3PT you record.',
     tour_m_undo_t:    'Undo',
@@ -247,11 +320,12 @@ const translations = {
     invalid_password:     'Nesprávne heslo. Skúste znova.',
 
     // Nav
-    nav_dashboard:        'Prehľad',
+    nav_dashboard:        'Zapisovať',
+    nav_players:          'Hráči',
     nav_admin:            'Admin',
 
     // Dashboard
-    dashboard:            'Prehľad',
+    dashboard:            'Zapisovať',
     no_seasons:           'Zatiaľ žiadne sezóny. Prejdite do Adminu a vytvorte ju.',
     live:                 'Live',
     view:                 'Zobraziť',
@@ -366,12 +440,31 @@ const translations = {
     edit_mode:            '✏️ Upraviť',
     edit_mode_exit:       '✏️ Ukončiť úpravu',
     edit_mode_banner:     '✏️ Režim úprav — použite − a + na opravu štatistík',
+    nothing_to_remove:    'Nie je čo odstrániť',
+    undone:               'Vrátené ✓',
+    removed:              'Odstránené ✓',
+    error_retry:          'Chyba — skúste znova',
+    session_expired:      'Relácia vypršala — prihláste sa znova',
+    pending_sync:         '⏳ {n} neodoslaných — skúsim znova',
+
+    // Share page
+    sh_player:            'Hráč',
+    sh_pts:               'BOD',
+    sh_reb:               'DOS',
+    sh_ast:               'AST',
+    sh_fg:                'FG',
+    sh_live:              'Live',
+    sh_offline:           'Obnovuje sa spojenie…',
+    sh_copy:              '📋 Kopírovať pre WhatsApp',
+    sh_copied:            '✓ Skopírované!',
+    sh_footer:            'Zdieľané z BSC Bratislava – Štatistiky hráčov',
+    switch_language:      'Prepnúť jazyk',
 
     // Summary
     summary_title:        'Súhrn',
     share:                'Zdieľať',
     back_to_match:        '← Späť na zápas',
-    back_to_dashboard:    '← Prehľad',
+    back_to_dashboard:    '← Zapisovať',
     export_csv:           'Exportovať CSV',
     matches_count_one:    'zápas',
     matches_count_other:  'zápasov',
@@ -388,6 +481,57 @@ const translations = {
     stat_blk:  'Blok',
     stat_stl:  'Krád',
     stat_pf:   'Chyba',
+    stat_1pt_miss: '1B✗',
+    stat_2pt_miss: '2B✗',
+    stat_3pt_miss: '3B✗',
+
+    // Vysvetlenie štatistík (nápoveda pri hlavičke tabuľky; slovník na stránke Zapisovať zápas)
+    stat_help_title:    'Čo znamenajú skratky?',
+    stat_help_1pt:      'Trafený trestný hod (1 bod)',
+    stat_help_2pt:      'Trafený kôš z hry zvnútra trojkovej čiary (2 body)',
+    stat_help_3pt:      'Trafená trojka spoza trojkovej čiary (3 body)',
+    stat_help_1pt_miss: 'Netrafený trestný hod',
+    stat_help_2pt_miss: 'Netrafený kôš z hry zvnútra trojkovej čiary',
+    stat_help_3pt_miss: 'Netrafená trojka',
+    stat_help_oreb:     'Útočný doskok – získanie lopty po netrafenom hode spoluhráča',
+    stat_help_dreb:     'Obranný doskok – získanie lopty po netrafenom hode súpera',
+    stat_help_ast:      'Asistencia – prihrávka, po ktorej spoluhráč hneď skóroval',
+    stat_help_to:       'Strata – strata lopty v prospech súpera',
+    stat_help_blk:      'Blok – zastavenie hodu súpera',
+    stat_help_stl:      'Krádež – zobratie lopty súperovi',
+    stat_help_pf:       'Osobná chyba – porušenie pravidiel s kontaktom',
+
+    // Match roster
+    roster:            'Kto hrá',
+    roster_hint:       'Odškrtnite hráčov, ktorí na zápase nie sú. Hráči, ktorí už majú štatistiku, ostávajú v zozname.',
+    roster_has_stats:  'V tomto zápase už má štatistiky',
+
+    // Players pages
+    players_title:     'Hráči',
+    players_intro:     'Priemery na zápas zo všetkých zaznamenaných zápasov.',
+    all_seasons:       'Všetky sezóny',
+    games_played:      'Z',
+    games_played_full: 'Odohrané zápasy',
+    avg_pts:           'B/Z',
+    avg_reb:           'D/Z',
+    avg_ast:           'A/Z',
+    avg_stl:           'K/Z',
+    avg_blk:           'Bl/Z',
+    avg_to:            'S/Z',
+    avg_pf:            'Ch/Z',
+    pct_fg:            'Z hry %',
+    pct_3p:            '3B %',
+    pct_ft:            'VH %',
+    shooting:          'Streľba',
+    shooting_note:     'Streľba sa počíta len zo zápasov, v ktorých sa zaznamenávali aj nepremenené strely. Ak sa pri hráčovi nepremenené strely nezapisovali, percentá môžu vychádzať vyššie, než v skutočnosti sú.',
+    no_shooting:       'Zatiaľ žiadne dáta o streľbe',
+    totals:            'Súčty',
+    averages:          'Priemery na zápas',
+    game_log:          'Zápasy',
+    no_games:          'Zatiaľ žiadne odohrané zápasy.',
+    team_total:        'Tím',
+    back_to_players:   '← Hráči',
+    season_col:        'Sezóna',
 
     // Interactive guide
     tour_help: 'Zobraziť sprievodcu',
@@ -414,7 +558,7 @@ const translations = {
     tour_admin_welcome_t:  'Administrácia',
     tour_admin_welcome_d:  'Tu nastavíte svoje dáta. Odporúčané poradie: Kategórie → Hráči → Sezóna → Zápasy.',
     tour_admin_tabs_t:     'Štyri sekcie',
-    tour_admin_tabs_d:     'Hráči, Sezóny a zápasy, Kategórie a Záloha majú každá vlastnú záložku.',
+    tour_admin_tabs_d:     'Kategórie, Hráči, Sezóny a zápasy a Záloha majú každá vlastnú záložku.',
     tour_admin_add_t:      'Pridať nové položky',
     tour_admin_add_d:      'Týmto tlačidlom pridáte hráča, sezónu alebo kategóriu podľa záložky.',
     tour_admin_addmatch_t: 'Pridať zápas',
@@ -431,7 +575,7 @@ const translations = {
     tour_m_pin_t:     'Pripnúť hráča',
     tour_m_pin_d:     'Hviezdičkou označte hráčov na ihrisku, aby zostali na vrchu zoznamu.',
     tour_m_stats_t:   'Tlačidlá štatistík',
-    tour_m_stats_d:   'Klepnutím pridáte jednu: 1B, 2B, 3B (body), ÚDos / ODos (doskoky), Asist (asistencia), Strata, Blok, Krád (zisk lopty), Chyba (osobná chyba).',
+    tour_m_stats_d:   'Klepnutím pridáte jednu: 1B, 2B, 3B (premenené strely = body), 1B✗ / 2B✗ / 3B✗ (nepremenené strely), ÚDos / ODos (doskoky), Asist (asistencia), Strata, Blok, Krád (zisk lopty), Chyba (osobná chyba).',
     tour_m_pts_t:     'Body',
     tour_m_pts_d:     'Body sa počítajú automaticky z 1B, 2B a 3B, ktoré zaznamenáte.',
     tour_m_undo_t:    'Späť',
@@ -454,8 +598,14 @@ const translations = {
  * Falls back to English if key is missing in the target language.
  */
 function getT(lang) {
-  const dict = translations[lang] || translations.en;
+  const dict = translations[lang] || translations[DEFAULT_LANG];
   return (key) => dict[key] ?? translations.en[key] ?? key;
 }
 
-module.exports = { getT };
+/** Subset of strings needed by public/js/app.js (toasts etc.). */
+const CLIENT_KEYS = ['nothing_to_undo', 'nothing_to_remove', 'undone', 'removed', 'error_retry', 'session_expired', 'pending_sync', 'match_closed_banner'];
+function clientStrings(t) {
+  return Object.fromEntries(CLIENT_KEYS.map(k => [k, t(k)]));
+}
+
+module.exports = { getT, clientStrings, DEFAULT_LANG };

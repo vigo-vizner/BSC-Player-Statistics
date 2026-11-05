@@ -5,9 +5,13 @@ const db       = require('../db');
 const sse      = require('../sse');
 const { layout } = require('../views/layout');
 const { buildTour } = require('../tour');
+const { esc } = require('../util');
+const { STAT_TYPES, STAT_KEYS, SHOT_MISS, buildStatMap, pointsOf } = require('../stats');
 
-const STAT_TYPES = ['1pt','2pt','3pt','oreb','dreb','ast','to','blk','stl','pf'];
-const STAT_KEYS  = { '1pt':'stat_1pt','2pt':'stat_2pt','3pt':'stat_3pt','oreb':'stat_oreb','dreb':'stat_dreb','ast':'stat_ast','to':'stat_to','blk':'stat_blk','stl':'stat_stl','pf':'stat_pf' };
+const isMiss = (st) => SHOT_MISS.includes(st);
+// Class suffixes for a stat button: red tint for misses, wider cell in the accordion for the six shot buttons
+const statClass  = (st) => (isMiss(st) ? ' is-miss' : '');
+const shotClass  = (st) => (st.startsWith('1pt') || st.startsWith('2pt') || st.startsWith('3pt') ? ' accord-shot' : '');
 
 // ── Per-browser device id (used so Undo only touches this device's own stats) ──
 // Random id kept in a long-lived cookie; no login or setup needed.
@@ -23,40 +27,33 @@ router.use((req, res, next) => {
 });
 
 /** This device's newest stat as { player_name, stat_label }, or null if none. */
-function buildMyLast(t, players, matchId, deviceId) {
+function buildMyLast(t, matchId, deviceId) {
   const s = db.getLastStatByDevice(matchId, deviceId);
   if (!s) return null;
   return {
-    player_name: players.find(p => p.id === s.player_id)?.name || '?',
+    player_name: playerName(s.player_id),
     stat_label:  t(STAT_KEYS[s.stat_type]),
   };
 }
 
-function esc(str) {
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+/** Players shown on (and allowed to receive stats in) this match: its roster, else its whole category. */
+const getMatchPlayers = (match) => db.getMatchPlayers(match);
+
+/** Look up a player's display name among ALL players (also inactive ones). */
+function playerName(playerId) {
+  return db.getPlayers().find(p => p.id === playerId)?.name || '?';
 }
 
-function buildStatMap(stats, players) {
-  const map = {};
-  players.forEach(p => { map[p.id] = {}; STAT_TYPES.forEach(t => { map[p.id][t] = 0; }); });
-  stats.forEach(s => { if (map[s.player_id]) map[s.player_id][s.stat_type]++; });
-  return map;
-}
-
-function totalPoints(statMap, playerId) {
-  const m = statMap[playerId] || {};
-  return (m['1pt'] || 0) * 1 + (m['2pt'] || 0) * 2 + (m['3pt'] || 0) * 3;
-}
+const totalPoints = (statMap, playerId) => pointsOf(statMap[playerId] || {});
 
 /** Build the SSE broadcast payload for a player after any stat change. */
 function buildPlayerPayload(t, match, players, statMap, pid, lastStat) {
   const newLast = lastStat;
-  const lastPlayer = newLast ? players.find(p => p.id === newLast.player_id) : null;
   return {
     player_id:        pid,
     counts:           statMap[pid] || {},
     points:           totalPoints(statMap, pid),
-    last_player_name: lastPlayer?.name || null,
+    last_player_name: newLast ? playerName(newLast.player_id) : null,
     last_stat_label:  newLast ? t(STAT_KEYS[newLast.stat_type]) : null,
     last_stat_id:     newLast?.id || null,
   };
@@ -71,9 +68,7 @@ router.get('/:id', (req, res) => {
 
   const isClosed  = match.status === 'closed';
   // Show only players belonging to this match's category (or all if no category set)
-  const players = match.category_id
-    ? db.getActivePlayersByCat(match.category_id)
-    : db.getActivePlayers();
+  const players = getMatchPlayers(match);
   const stats    = db.getStatsByMatch(match.id);
   const statMap  = buildStatMap(stats, players);
   const myLastStat = db.getLastStatByDevice(match.id, req.deviceId);
@@ -82,7 +77,16 @@ router.get('/:id', (req, res) => {
   const seasonId     = match.season_id;
   const seasonPtsMap = db.getSeasonPtsByPlayer(seasonId);
 
-  const headerCols = STAT_TYPES.map(st => `<th class="stat-col">${t(STAT_KEYS[st])}</th>`).join('');
+  // Hover (desktop) shows the explanation; the glossary below the table covers touch screens
+  const headerCols = STAT_TYPES.map(st => `<th class="stat-col${statClass(st)}" title="${esc(t('stat_help_' + st))}">${t(STAT_KEYS[st])}</th>`).join('');
+
+  const statHelp = `
+  <details class="roster-box stat-help">
+    <summary>❓ ${t('stat_help_title')}</summary>
+    <dl class="stat-help-list">
+      ${STAT_TYPES.map(st => `<dt${isMiss(st) ? ' class="is-miss"' : ''}>${t(STAT_KEYS[st])}</dt><dd>${t('stat_help_' + st)}</dd>`).join('')}
+    </dl>
+  </details>`;
 
   const playerRows = players.map(p => {
     const statCells = STAT_TYPES.map(st => {
@@ -91,7 +95,7 @@ router.get('/:id', (req, res) => {
         return `<td class="stat-cell"><span class="stat-val ${count > 0 ? 'has-val' : ''}">${count || '—'}</span></td>`;
       }
       return `<td class="stat-cell">
-        <button class="stat-btn${count > 0 ? ' has-val' : ''}" data-match="${match.id}" data-player="${p.id}" data-stat="${st}">
+        <button class="stat-btn${statClass(st)}${count > 0 ? ' has-val' : ''}" data-match="${match.id}" data-player="${p.id}" data-stat="${st}">
           ${count > 0 ? count : '+'}
         </button>
       </td>`;
@@ -100,7 +104,7 @@ router.get('/:id', (req, res) => {
     // Accordion: normal tap-to-add buttons
     const accordionBtns = isClosed ? '' : STAT_TYPES.map(st => {
       const count = statMap[p.id][st] || 0;
-      return `<button class="stat-btn accord-btn${count > 0 ? ' has-val' : ''}" data-match="${match.id}" data-player="${p.id}" data-stat="${st}">
+      return `<button class="stat-btn accord-btn${statClass(st)}${shotClass(st)}${count > 0 ? ' has-val' : ''}" data-match="${match.id}" data-player="${p.id}" data-stat="${st}">
         <span class="accord-label">${t(STAT_KEYS[st])}</span>
         <span class="accord-count">${count > 0 ? count : '+'}</span>
       </button>`;
@@ -122,7 +126,7 @@ router.get('/:id', (req, res) => {
     const pts       = totalPoints(statMap, p.id);
     const seasonPts = seasonPtsMap[p.id] || 0;
     return `
-    <tr id="player-row-${p.id}" class="player-main-row" data-player-id="${p.id}">
+    <tr id="player-row-${p.id}" class="player-main-row" data-player-id="${p.id}" data-name="${esc(p.name)}">
       <td class="player-cell">
         <button class="pin-btn" data-player-id="${p.id}" title="Pin player" aria-label="Pin ${esc(p.name)}">☆</button>
         <span class="player-name-expand" data-player-id="${p.id}">
@@ -141,9 +145,8 @@ router.get('/:id', (req, res) => {
     </tr>` : ''}`;
   }).join('');
 
-  const lastPlayer = players.find(p => p.id === myLastStat?.player_id);
   const undoInfo = myLastStat
-    ? `${t('your_last')}: <strong>${esc(lastPlayer?.name || '?')}</strong> — ${t(STAT_KEYS[myLastStat.stat_type])}`
+    ? `${t('your_last')}: <strong>${esc(playerName(myLastStat.player_id))}</strong> — ${t(STAT_KEYS[myLastStat.stat_type])}`
     : t('nothing_to_undo');
 
   const closedBanner = isClosed ? `
@@ -159,13 +162,14 @@ router.get('/:id', (req, res) => {
     </div>
     <button class="btn btn-outline" id="edit-mode-btn" onclick="toggleEditMode()"
       data-edit-label="${esc(t('edit_mode'))}" data-exit-label="${esc(t('edit_mode_exit'))}">${t('edit_mode')}</button>
-    <form method="POST" action="/match/${match.id}/close" onsubmit="return confirm('${t('confirm_close')}')">
+    <form method="POST" action="/match/${match.id}/close" data-confirm="${esc(t('confirm_close'))}">
       <button class="btn btn-danger">${t('close_match_btn')}</button>
     </form>`;
 
   // SSE indicator — shows a small dot when live sync is active
   const syncIndicator = isClosed ? '' :
-    `<span id="sync-dot" class="sync-dot sync-dot--off" title="Live sync"></span>`;
+    `<span id="sync-dot" class="sync-dot sync-dot--off" title="Live sync"></span>
+     <span id="pending-badge" class="pending-badge hidden" role="status"></span>`;
 
   const editBanner = isClosed ? '' :
     `<div class="edit-banner hidden" id="edit-banner">${t('edit_mode_banner')}</div>`;
@@ -191,6 +195,31 @@ router.get('/:id', (req, res) => {
         <span class="score-team">${esc(match.opponent)}</span>
       </div>`;
 
+  // Roster picker (open matches only). No saved roster = everyone in the category is on the list.
+  let rosterBox = '';
+  if (!isClosed) {
+    const saved      = db.getMatchRoster(match.id);
+    const hasStat    = new Set(stats.map(s => s.player_id));
+    const candidates = db.getRosterCandidates(match);
+    const checks = candidates.map(p => {
+      const locked = hasStat.has(p.id);
+      const on     = locked || !saved.length || saved.includes(p.id);
+      return `<label class="roster-item${locked ? ' roster-item--locked' : ''}"${locked ? ` title="${esc(t('roster_has_stats'))}"` : ''}>
+        <input type="checkbox" name="player_ids" value="${p.id}"${on ? ' checked' : ''}${locked ? ' disabled' : ''}>
+        <span class="p-num">#${esc(p.number)}</span> ${esc(p.name)}
+      </label>`;
+    }).join('');
+    rosterBox = `
+    <details class="roster-box">
+      <summary>👥 ${t('roster')} <span class="roster-count">(${players.length})</span></summary>
+      <form method="POST" action="/match/${match.id}/roster">
+        <p class="roster-hint">${t('roster_hint')}</p>
+        <div class="roster-list">${checks || `<span class="empty">${t('no_data')}</span>`}</div>
+        <button class="btn btn-primary btn-sm">${t('save')}</button>
+      </form>
+    </details>`;
+  }
+
   const body = `
   ${closedBanner}
   ${editBanner}
@@ -203,9 +232,11 @@ router.get('/:id', (req, res) => {
     <div class="match-actions">
       ${liveControls}
       <a href="/match/${match.id}/summary" class="btn btn-outline">${t('summary')}</a>
-      <a href="/share/match/${match.id}" target="_blank" class="btn btn-outline">🔗 ${t('share')}</a>
+      <a href="/share/match/${esc(match.share_token)}" target="_blank" class="btn btn-outline">🔗 ${t('share')}</a>
     </div>
   </div>
+
+  ${rosterBox}
 
   <div class="live-table-wrap">
     <table class="live-table" id="live-table">
@@ -220,8 +251,12 @@ router.get('/:id', (req, res) => {
     </table>
   </div>
 
+  ${statHelp}
+
   <div id="toast" class="toast hidden"></div>
-  ${!isClosed ? `<script>window._matchId = ${match.id};</script>` : ''}`;
+  ${!isClosed
+    ? `<script>window._matchId = ${match.id}; window._statLabels = ${JSON.stringify(Object.fromEntries(STAT_TYPES.map(st => [st, t(STAT_KEYS[st])]))).replace(/</g, '\\u003c')};</script>`
+    : `<script>window._closedMatchId = ${match.id};</script>`}`;
 
   res.send(layout(`${t('vs')} ${match.opponent}`, body, { lang, t, tour: isClosed ? null : buildTour('match', t) }));
 });
@@ -250,31 +285,56 @@ router.get('/:id/events', (req, res) => {
   });
 });
 
+// ── GET /match/:id/state  (full snapshot, used to resync after a dropped connection) ──
+router.get('/:id/state', (req, res) => {
+  const match = db.getMatch(req.params.id);
+  if (!match) return res.status(404).json({ ok: false, error: 'match not found' });
+
+  const players = getMatchPlayers(match);
+  const statMap = buildStatMap(db.getStatsByMatch(match.id), players);
+  const out = {};
+  players.forEach(p => { out[p.id] = { counts: statMap[p.id], points: totalPoints(statMap, p.id) }; });
+
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({
+    ok: true,
+    status:         match.status,
+    score_bsc:      match.score_bsc || 0,
+    score_opponent: match.score_opponent || 0,
+    players:        out,
+    my_last:        buildMyLast(req.t, match.id, req.deviceId),
+  });
+});
+
 // ── POST /match/:id/stat ─────────────────────────────────────────────────────
 router.post('/:id/stat', (req, res) => {
   const t = req.t;
   const { player_id, stat_type } = req.body;
+  // Client-generated id of this tap: a retried request with the same id is never counted twice
+  const opId = /^[\w-]{8,64}$/.test(req.body.op_id || '') ? req.body.op_id : null;
   if (!STAT_TYPES.includes(stat_type)) return res.status(400).json({ error: 'invalid stat' });
 
   const match = db.getMatch(req.params.id);
   if (!match) return res.status(404).json({ error: 'match not found' });
   if (match.status === 'closed') return res.status(403).json({ error: 'match is closed' });
 
-  db.insertStat(match.id, player_id, stat_type, req.deviceId);
+  const players = getMatchPlayers(match);
+  const pid     = parseInt(player_id, 10);
+  if (!players.some(p => p.id === pid)) return res.status(400).json({ error: 'invalid player' });
+
+  const inserted = db.insertStat(match.id, pid, stat_type, req.deviceId, opId);
 
   const stats   = db.getStatsByMatch(match.id);
-  const players = db.getActivePlayers();
   const statMap = buildStatMap(stats, players);
-  const pid     = parseInt(player_id, 10);
   const lastStat = db.getLastStat(match.id);
 
   const payload = buildPlayerPayload(t, match, players, statMap, pid, lastStat);
 
-  // Broadcast to all OTHER devices watching this match
-  sse.broadcast(match.id, 'stat', payload);
+  // Broadcast to all devices watching this match (a duplicate retry changed nothing, so nothing to announce)
+  if (inserted) sse.broadcast(match.id, 'stat', opId ? { ...payload, op_id: opId } : payload);
 
   // my_last is private to the requesting device — never broadcast
-  res.json({ ok: true, ...payload, my_last: buildMyLast(t, players, match.id, req.deviceId) });
+  res.json({ ok: true, ...payload, my_last: buildMyLast(t, match.id, req.deviceId) });
 });
 
 // ── POST /match/:id/stat/remove ──────────────────────────────────────────────
@@ -287,26 +347,26 @@ router.post('/:id/stat/remove', (req, res) => {
   if (!match) return res.status(404).json({ error: 'match not found' });
   if (match.status === 'closed') return res.status(403).json({ error: 'match is closed' });
 
-  const removed = db.deleteLastStatOfType(match.id, player_id, stat_type);
-  if (!removed) return res.json({ ok: false, message: 'Nothing to remove' });
+  const pid = parseInt(player_id, 10);
+  const removed = db.deleteLastStatOfType(match.id, pid, stat_type);
+  if (!removed) return res.json({ ok: false, message: t('nothing_to_remove') });
 
   const stats   = db.getStatsByMatch(match.id);
-  const players = match.category_id ? db.getActivePlayersByCat(match.category_id) : db.getActivePlayers();
+  const players = getMatchPlayers(match);
   const statMap = buildStatMap(stats, players);
-  const pid     = parseInt(player_id, 10);
   const lastStat = db.getLastStat(match.id);
 
   const payload = buildPlayerPayload(t, match, players, statMap, pid, lastStat);
   // `removed` tells other devices to re-check their own "Your last" (the removed stat may have been theirs)
   sse.broadcast(match.id, 'stat', { ...payload, removed: true });
-  res.json({ ok: true, ...payload, my_last: buildMyLast(t, players, match.id, req.deviceId) });
+  res.json({ ok: true, ...payload, my_last: buildMyLast(t, match.id, req.deviceId) });
 });
 
 // ── GET /match/:id/my-last ────────────────────────────────────────────────────
 router.get('/:id/my-last', (req, res) => {
   const match = db.getMatch(req.params.id);
   if (!match) return res.status(404).json({ error: 'match not found' });
-  res.json({ my_last: buildMyLast(req.t, db.getPlayers(), match.id, req.deviceId) });
+  res.json({ my_last: buildMyLast(req.t, match.id, req.deviceId) });
 });
 
 // ── POST /match/:id/undo ──────────────────────────────────────────────────────
@@ -324,7 +384,7 @@ router.post('/:id/undo', (req, res) => {
   db.deleteStat(last.id);
 
   const stats   = db.getStatsByMatch(match.id);
-  const players = db.getActivePlayers();
+  const players = getMatchPlayers(match);
   const statMap = buildStatMap(stats, players);
 
   const payload = {
@@ -337,7 +397,7 @@ router.post('/:id/undo', (req, res) => {
   // Broadcast undo to all other devices
   sse.broadcast(match.id, 'undo', payload);
 
-  res.json({ ok: true, ...payload, my_last: buildMyLast(t, players, match.id, req.deviceId) });
+  res.json({ ok: true, ...payload, my_last: buildMyLast(t, match.id, req.deviceId) });
 });
 
 // ── POST /match/:id/score ─────────────────────────────────────────────────────
@@ -355,6 +415,26 @@ router.post('/:id/score', (req, res) => {
   res.json(payload);
 });
 
+// ── POST /match/:id/roster ────────────────────────────────────────────────────
+// Who attended. Players who already have a stat can't be removed (their checkbox is disabled in the form).
+router.post('/:id/roster', (req, res) => {
+  const match = db.getMatch(req.params.id);
+  if (!match) return res.status(404).send('Match not found');
+  if (match.status === 'closed') return res.redirect(`/match/${match.id}`);
+
+  const raw      = [].concat(req.body.player_ids || []);
+  const allowed  = new Set(db.getRosterCandidates(match).map(p => p.id));
+  const picked   = raw.map(v => parseInt(v, 10)).filter(id => allowed.has(id));
+  const withStat = db.getStatsByMatch(match.id).map(s => s.player_id);
+  const ids      = [...new Set([...picked, ...withStat])];
+
+  // Everybody ticked = same as no roster (keeps new category players showing up automatically)
+  const everyone = [...allowed].every(id => ids.includes(id));
+  db.setMatchRoster(match.id, everyone ? [] : ids);
+  sse.broadcast(match.id, 'roster', {});
+  res.redirect(`/match/${match.id}`);
+});
+
 // ── POST /match/:id/close ─────────────────────────────────────────────────────
 router.post('/:id/close', (req, res) => {
   const match = db.getMatch(req.params.id);
@@ -369,6 +449,7 @@ router.post('/:id/reopen', (req, res) => {
   const match = db.getMatch(req.params.id);
   if (!match) return res.status(404).send('Match not found');
   db.reopenMatch(match.id);
+  sse.broadcast(match.id, 'reopened', {});
   res.redirect(`/match/${match.id}`);
 });
 

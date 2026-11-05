@@ -1,41 +1,35 @@
 const express   = require('express');
 const router    = express.Router();
 const db        = require('../db');
-const { getT }  = require('../i18n');
+const sse       = require('../sse');
+const { getT, DEFAULT_LANG } = require('../i18n');
+const { esc } = require('../util');
+const { buildStatMap, pointsOf, reboundsOf, shooting, shotsTracked, splitText } = require('../stats');
 
-const STAT_TYPES = ['1pt','2pt','3pt','oreb','dreb','ast','to','blk','stl','pf'];
-
-function esc(str) {
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-function buildStatMap(stats, players) {
-  const map = {};
-  players.forEach(p => { map[p.id] = {}; STAT_TYPES.forEach(t => { map[p.id][t] = 0; }); });
-  stats.forEach(s => { if (map[s.player_id]) map[s.player_id][s.stat_type]++; });
-  return map;
-}
-
-function totalPoints(m) {
-  return (m['1pt']||0)*1 + (m['2pt']||0)*2 + (m['3pt']||0)*3;
-}
-
-function totalReb(m) { return (m['oreb']||0) + (m['dreb']||0); }
+const totalPoints = pointsOf;
+const totalReb    = reboundsOf;
 function totalAst(m) { return m['ast']||0; }
 
-// ── GET /share/match/:id ──────────────────────────────────────────────────────
-router.get('/match/:id', (req, res) => {
-  const lang = req.session?.lang || 'en';
-  const t    = getT(lang);
+const TOKEN_RE = /^[\w-]{16,64}$/;
 
-  const match = db.getMatch(req.params.id);
-  if (!match) return res.status(404).send('Match not found');
+// Keep shared pages out of search engines and don't leak the token via Referer
+function privacyHeaders(res) {
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+}
 
-  const players  = match.category_id
-    ? db.getActivePlayersByCat(match.category_id)
-    : db.getActivePlayers();
+function findMatch(token) {
+  return TOKEN_RE.test(token) ? db.getMatchByShareToken(token) : null;
+}
+
+// Everything the page shows that changes during a match. Rendered on the server once, so the
+// initial page and the live updates (JSON fragments swapped in by the client) use the same markup.
+function buildView(match, t) {
+  const players  = db.getMatchPlayers(match);   // the match roster, else its whole category
   const stats    = db.getStatsByMatch(match.id);
   const statMap  = buildStatMap(stats, players);
+  // FG column appears when at least one player has misses recorded; each player's own cell shows a dash otherwise
+  const tracked  = players.some(p => shotsTracked(statMap[p.id] || {}));
 
   const scoreBsc = match.score_bsc || 0;
   const scoreOpp = match.score_opponent || 0;
@@ -50,12 +44,14 @@ router.get('/match/:id', (req, res) => {
     const pts = totalPoints(m);
     const reb = totalReb(m);
     const ast = totalAst(m);
+    const fg  = shooting(m).fg;
     return `
     <tr>
       <td class="sh-player"><span class="sh-num">#${esc(p.number)}</span> ${esc(p.name)}</td>
       <td class="sh-stat"><strong>${pts}</strong><span class="sh-lbl">pts</span></td>
       <td class="sh-stat">${reb}<span class="sh-lbl">reb</span></td>
       <td class="sh-stat">${ast}<span class="sh-lbl">ast</span></td>
+      ${tracked ? `<td class="sh-stat">${shotsTracked(m) ? splitText(fg) : '—'}<span class="sh-lbl">fg</span></td>` : ''}
     </tr>`;
   }).join('');
 
@@ -66,23 +62,101 @@ router.get('/match/:id', (req, res) => {
     const pts = totalPoints(m);
     const reb = totalReb(m);
     const ast = totalAst(m);
-    return `${p.name}: ${pts}pts ${reb}reb${ast > 0 ? ` ${ast}ast` : ''}`;
+    const fg  = shooting(m).fg;
+    return `${p.name}: ${pts}pts ${reb}reb${ast > 0 ? ` ${ast}ast` : ''}${shotsTracked(m) && fg.a > 0 ? ` ${splitText(fg)}fg` : ''}`;
   }).join('\n');
   const shareText = `${header}\n${lines}\n#BSCBratislava`;
 
-  const matchTypeBadge = match.match_type && match.match_type !== 'league'
-    ? `<span class="sh-type-badge sh-type-${match.match_type}">${t('match_type_' + match.match_type)}${match.tournament_name ? ` · ${esc(match.tournament_name)}` : ''}</span>`
-    : '';
-
-  const statusBadge = match.status === 'closed'
+  const statusHtml = match.status === 'closed'
     ? `<span class="sh-badge sh-badge--closed">🔒 ${t('closed')}</span>`
-    : `<span class="sh-badge sh-badge--live">🟢 Live</span>`;
+    : `<span class="sh-badge sh-badge--live">🟢 ${t('sh_live')}</span>`;
+
+  const scoreHtml = hasScore ? `
+  <div class="sh-score-wrap">
+    <div class="sh-score ${resultClass}">
+      <div>
+        <div class="sh-score-team">BSC</div>
+        <div class="sh-score-val">${scoreBsc}</div>
+      </div>
+      <div class="sh-score-sep">—</div>
+      <div>
+        <div class="sh-score-team">${esc(match.opponent)}</div>
+        <div class="sh-score-val">${scoreOpp}</div>
+      </div>
+    </div>
+  </div>` : '';
+
+  const tableHtml = `<table>
+      <thead><tr><th>${t('sh_player')}</th><th>${t('sh_pts')}</th><th>${t('sh_reb')}</th><th>${t('sh_ast')}</th>${tracked ? `<th>${t('sh_fg')}</th>` : ''}</tr></thead>
+      <tbody>${playerRows}</tbody>
+    </table>`;
+
+  const noteHtml = tracked ? `<p class="sh-note">${t('shooting_note')}</p>` : '';
+
+  return { hasScore, scoreStr, shareText, statusHtml, scoreHtml, tableHtml, noteHtml };
+}
+
+// ── GET /share/match/:token/data ──────────────────────────────────────────────
+// Public JSON with the current HTML fragments; the live share page fetches this on every change.
+router.get('/match/:token/data', (req, res) => {
+  privacyHeaders(res);
+  res.setHeader('Cache-Control', 'no-store');
+  const match = findMatch(req.params.token);
+  if (!match) return res.status(404).json({ ok: false });
+
+  const v = buildView(match, getT(req.session?.lang || DEFAULT_LANG));
+  res.json({ ok: true, status: v.statusHtml, score: v.scoreHtml, table: v.tableHtml, note: v.noteHtml, shareText: v.shareText });
+});
+
+// ── GET /share/match/:token/events  (SSE) ─────────────────────────────────────
+// Public. Carries no stat data — only a bare `changed` signal telling the page to re-fetch /data.
+router.get('/match/:token/events', (req, res) => {
+  privacyHeaders(res);
+  const match = findMatch(req.params.token);
+  if (!match) return res.status(404).end();
+
+  res.setHeader('Content-Type',  'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection',    'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  if (!sse.addWatcher(match.id, res)) return res.status(503).end();
+  res.flushHeaders();
+
+  const heartbeat = setInterval(() => {
+    try { res.write(': heartbeat\n\n'); } catch (_) { clearInterval(heartbeat); }
+  }, 25000);
+
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    sse.removeWatcher(match.id, res);
+  });
+});
+
+// ── GET /share/match/:token ───────────────────────────────────────────────────
+// Public (no login). The URL carries an unguessable per-match token, not the sequential id.
+router.get('/match/:token', (req, res) => {
+  const lang = req.session?.lang || DEFAULT_LANG;
+  const t    = getT(lang);
+
+  privacyHeaders(res);
+  res.setHeader('Cache-Control', 'no-store');
+
+  const match = findMatch(req.params.token);
+  if (!match) return res.status(404).send('Match not found');
+
+  const { hasScore, scoreStr, shareText, statusHtml, scoreHtml, tableHtml, noteHtml } = buildView(match, t);
+
+  const matchTypeBadge = match.match_type && match.match_type !== 'league'
+    ? `<span class="sh-type-badge sh-type-${esc(match.match_type)}">${t('match_type_' + match.match_type)}${match.tournament_name ? ` · ${esc(match.tournament_name)}` : ''}</span>`
+    : '';
 
   const html = `<!DOCTYPE html>
 <html lang="${lang}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+
   <meta property="og:title" content="BSC vs ${esc(match.opponent)}${hasScore ? ` ${scoreStr}` : ''}">
   <meta property="og:description" content="${esc(shareText.split('\n').slice(1).join(' · '))}">
   <title>BSC vs ${esc(match.opponent)}${hasScore ? ` ${scoreStr}` : ''}</title>
@@ -154,10 +228,12 @@ router.get('/match/:id', (req, res) => {
     .sh-copy-btn.copied { background: #dcfce7; color: #15803d; }
 
     /* Footer */
+    .sh-offline { font-size: .72rem; color: var(--muted); }
+    .sh-offline[hidden] { display: none; }
+    .sh-note { font-size: .72rem; color: var(--muted); margin: -.6rem 0 1rem; line-height: 1.4; }
     .sh-footer { text-align: center; font-size: .72rem; color: var(--muted); margin-top: 2rem; border-top: 1px solid var(--border); padding-top: .75rem; }
   </style>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/fonts/fonts.css">
 </head>
 <body>
 <div class="sh-wrap">
@@ -169,43 +245,29 @@ router.get('/match/:id', (req, res) => {
 
   <h1 class="sh-match-title">BSC vs ${esc(match.opponent)}</h1>
   <p class="sh-meta">${match.match_date}${match.location ? ' · ' + esc(match.location) : ''} · ${esc(match.season_name)}</p>
-  <div class="sh-badges">${statusBadge}${matchTypeBadge}</div>
+  <div class="sh-badges"><span id="sh-status">${statusHtml}</span>${matchTypeBadge}<span id="sh-offline" class="sh-offline" hidden>${t('sh_offline')}</span></div>
 
-  ${hasScore ? `
-  <div class="sh-score-wrap">
-    <div class="sh-score ${resultClass}">
-      <div>
-        <div class="sh-score-team">BSC</div>
-        <div class="sh-score-val">${scoreBsc}</div>
-      </div>
-      <div class="sh-score-sep">—</div>
-      <div>
-        <div class="sh-score-team">${esc(match.opponent)}</div>
-        <div class="sh-score-val">${scoreOpp}</div>
-      </div>
-    </div>
-  </div>` : ''}
+  <div id="sh-score">${scoreHtml}</div>
 
-  <div class="sh-table-wrap">
-    <table>
-      <thead><tr><th>Player</th><th>PTS</th><th>REB</th><th>AST</th></tr></thead>
-      <tbody>${playerRows}</tbody>
-    </table>
-  </div>
+  <div class="sh-table-wrap" id="sh-table">${tableHtml}</div>
 
-  <button class="sh-copy-btn" id="copy-btn" onclick="copyShare()">📋 Copy for WhatsApp</button>
+  <div id="sh-note">${noteHtml}</div>
 
-  <div class="sh-footer">Shared from BSC Bratislava Player Statistics</div>
+  <button class="sh-copy-btn" id="copy-btn" onclick="copyShare()">${t('sh_copy')}</button>
+
+  <div class="sh-footer">${t('sh_footer')}</div>
 </div>
 
 <script>
-const _shareText = ${JSON.stringify(shareText)};
+let _shareText = ${JSON.stringify(shareText).replace(/</g, '\\u003c')};
+const _lblCopy = ${JSON.stringify(t('sh_copy'))};
+const _lblCopied = ${JSON.stringify(t('sh_copied'))};
 function copyShare() {
   const btn = document.getElementById('copy-btn');
   navigator.clipboard.writeText(_shareText).then(() => {
-    btn.textContent = '✓ Copied!';
+    btn.textContent = _lblCopied;
     btn.classList.add('copied');
-    setTimeout(() => { btn.textContent = '📋 Copy for WhatsApp'; btn.classList.remove('copied'); }, 2500);
+    setTimeout(() => { btn.textContent = _lblCopy; btn.classList.remove('copied'); }, 2500);
   }).catch(() => {
     // Fallback for older browsers
     const ta = document.createElement('textarea');
@@ -214,11 +276,61 @@ function copyShare() {
     document.body.appendChild(ta); ta.select();
     document.execCommand('copy');
     document.body.removeChild(ta);
-    btn.textContent = '✓ Copied!';
+    btn.textContent = _lblCopied;
     btn.classList.add('copied');
-    setTimeout(() => { btn.textContent = '📋 Copy for WhatsApp'; btn.classList.remove('copied'); }, 2500);
+    setTimeout(() => { btn.textContent = _lblCopy; btn.classList.remove('copied'); }, 2500);
   });
 }
+
+// ── Live updates ──
+// The events stream only says "something changed"; the numbers are fetched from /data.
+(function () {
+  const base = location.pathname.replace(/\/$/, '');
+  const offline = document.getElementById('sh-offline');
+  let timer = null, es = null, retry = null;
+
+  function setHtml(id, html) {
+    const el = document.getElementById(id);
+    if (el && el.innerHTML !== html) el.innerHTML = html;
+  }
+
+  function refresh() {
+    fetch(base + '/data', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(d => {
+        setHtml('sh-status', d.status);
+        setHtml('sh-score', d.score);
+        setHtml('sh-table', d.table);
+        setHtml('sh-note', d.note);
+        _shareText = d.shareText;
+        offline.hidden = true;
+      })
+      .catch(() => { offline.hidden = false; });
+  }
+
+  // A burst of events (several stats in a second) becomes one fetch
+  function schedule() {
+    clearTimeout(timer);
+    timer = setTimeout(refresh, 300);
+  }
+
+  function connect() {
+    clearTimeout(retry);
+    if (es) es.close();
+    es = new EventSource(base + '/events');
+    es.addEventListener('changed', schedule);
+    es.onopen = () => { offline.hidden = true; refresh(); };   // also catches up on anything missed while offline
+    es.onerror = () => {
+      offline.hidden = false;
+      es.close();
+      retry = setTimeout(connect, 3000);
+    };
+  }
+
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+  window.addEventListener('online', connect);
+  if (window.EventSource) connect();
+})();
 </script>
 </body>
 </html>`;

@@ -1,63 +1,28 @@
-/* ── SSE live sync ───────────────────────────────────────────────────────── */
-(function initSSE() {
-  const matchId = window._matchId;
-  if (!matchId) return; // not on a live match page
+/* ── i18n + fetch helpers ────────────────────────────────────────────────── */
+/** Translated UI string injected by layout.js (window._i18n); falls back to the key. */
+function tr(key) {
+  return (window._i18n && window._i18n[key]) || key;
+}
 
-  const dot = document.getElementById('sync-dot');
-  let es;
-
-  function setDot(on) {
-    if (!dot) return;
-    dot.classList.toggle('sync-dot--on',  on);
-    dot.classList.toggle('sync-dot--off', !on);
+/**
+ * fetch() wrapper: marks the request as a script call so an expired session
+ * yields a 401 (instead of a redirect to the login page) and tells the user.
+ */
+async function apiFetch(url, opts = {}) {
+  const res = await fetch(url, {
+    ...opts,
+    headers: { ...(opts.headers || {}), 'X-Requested-With': 'fetch' },
+  });
+  if (res.status === 401) {
+    showToast(tr('session_expired'), true);
+    const err = new Error('session_expired');
+    err.handled = true;
+    throw err;
   }
+  return res;
+}
 
-  function connect() {
-    es = new EventSource(`/match/${matchId}/events`);
-
-    es.addEventListener('open', () => setDot(true));
-
-    es.addEventListener('error', () => {
-      setDot(false);
-      es.close();
-      // Reconnect after 3 s
-      setTimeout(connect, 3000);
-    });
-
-    // Another device recorded (or edit-removed) a stat.
-    // "Your last" is per device, so the bar is NOT changed by other devices' stats —
-    // except an edit-mode removal, which may have deleted this device's own last stat.
-    es.addEventListener('stat', (e) => {
-      const data = JSON.parse(e.data);
-      applyPlayerUpdate(data);
-      if (data.removed) refreshMyLast();
-    });
-
-    // Another device hit undo (it only removes that device's own stat, so our bar is unaffected)
-    es.addEventListener('undo', (e) => {
-      const data = JSON.parse(e.data);
-      applyUndoUpdate(data);
-    });
-
-    // Match was closed — reload so the page shows the closed state
-    es.addEventListener('closed', () => {
-      es.close();
-      window.location.reload();
-    });
-
-    // Another device updated the score
-    es.addEventListener('score', (e) => {
-      const data = JSON.parse(e.data);
-      const bscInput = document.getElementById('score-bsc-input');
-      const oppInput = document.getElementById('score-opp-input');
-      // Only update if the field isn't currently focused (don't clobber typing)
-      if (bscInput && document.activeElement !== bscInput) bscInput.value = data.score_bsc;
-      if (oppInput && document.activeElement !== oppInput) oppInput.value = data.score_opponent;
-    });
-  }
-
-  connect();
-})();
+/* Live match behaviour (SSE sync, optimistic taps, retry queue, undo, edit mode ±) lives in live.js */
 
 /* ── Score inputs — debounced auto-save ──────────────────────────────────── */
 (function initScoreInputs() {
@@ -71,7 +36,7 @@
     const oppInput = document.getElementById('score-opp-input');
     if (!bscInput || !oppInput) return;
     const matchId = bscInput.dataset.match;
-    fetch(`/match/${matchId}/score`, {
+    apiFetch(`/match/${matchId}/score`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -124,21 +89,6 @@ function updateStatButtons(pid, counts) {
   });
 }
 
-/** Apply a stat/player update to the DOM (used by both local tap AND SSE). */
-function applyPlayerUpdate(data) {
-  updateStatButtons(data.player_id, data.counts || {});
-  const ptsCell = document.getElementById(`pts-${data.player_id}`);
-  if (ptsCell) ptsCell.textContent = data.points;
-}
-
-/** Apply an undo update to the DOM (buttons + points only; the undo bar is per device). */
-function applyUndoUpdate(data) {
-  const pid = data.undone_player_id;
-  updateStatButtons(pid, data.counts || {});
-  const ptsCell = document.getElementById(`pts-${pid}`);
-  if (ptsCell) ptsCell.textContent = data.points;
-}
-
 /** Show THIS device's own last stat in the undo bar. `my` = { player_name, stat_label } or null/undefined. */
 function updateUndoBar(my) {
   const undoInfo = document.getElementById('undo-info');
@@ -150,72 +100,6 @@ function updateUndoBar(my) {
       : escHtml(undoInfo.dataset.emptyLabel || 'Nothing to undo');
   }
   if (undoBtn) undoBtn.disabled = !has;
-}
-
-/** Re-fetch this device's own last stat (used when an edit-mode removal elsewhere may have deleted it). */
-async function refreshMyLast() {
-  if (!window._matchId) return;
-  try {
-    const res  = await fetch(`/match/${window._matchId}/my-last`);
-    const data = await res.json();
-    updateUndoBar(data.my_last);
-  } catch (_) { /* non-critical */ }
-}
-
-/* ── Live match stat buttons ─────────────────────────────────────────────── */
-document.addEventListener('click', async (e) => {
-  const btn = e.target.closest('.stat-btn');
-  if (!btn) return;
-
-  const matchId  = btn.dataset.match;
-  const playerId = btn.dataset.player;
-  const statType = btn.dataset.stat;
-
-  btn.disabled = true;
-
-  try {
-    const res  = await fetch(`/match/${matchId}/stat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ player_id: playerId, stat_type: statType }),
-    });
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error || 'error');
-
-    // Update DOM for this player (shared helper also used by SSE)
-    applyPlayerUpdate(data);
-
-    // Flash the tapped button
-    btn.classList.add('flash');
-    setTimeout(() => btn.classList.remove('flash'), 300);
-
-    // Update undo bar with THIS device's own last stat
-    updateUndoBar(data.my_last);
-
-    showToast(`+${escHtml(data.last_stat_label)} — ${escHtml(data.last_player_name)}`);
-  } catch (err) {
-    showToast('Error — please retry', true);
-    console.error(err);
-  } finally {
-    btn.disabled = false;
-  }
-});
-
-/* ── Undo last stat ──────────────────────────────────────────────────────── */
-async function undoLast(matchId) {
-  try {
-    const res  = await fetch(`/match/${matchId}/undo`, { method: 'POST' });
-    const data = await res.json();
-    if (!data.ok) { showToast(data.message || 'Nothing to undo'); return; }
-
-    // Update DOM (shared helper also used by SSE), then step back to this device's previous stat
-    applyUndoUpdate(data);
-    updateUndoBar(data.my_last);
-    showToast('Undone ✓');
-  } catch (err) {
-    showToast('Error — please retry', true);
-    console.error(err);
-  }
 }
 
 /* ── Edit mode toggle ────────────────────────────────────────────────────── */
@@ -242,39 +126,7 @@ function toggleEditMode() {
   document.querySelectorAll('.accord-edit').forEach(g => g.classList.toggle('hidden', !_editMode));
 }
 
-/* ── Edit mode −/+ buttons ───────────────────────────────────────────────── */
-document.addEventListener('click', async (e) => {
-  const btn = e.target.closest('.edit-btn');
-  if (!btn) return;
-
-  const matchId  = btn.dataset.match;
-  const playerId = btn.dataset.player;
-  const statType = btn.dataset.stat;
-  const isPlus   = btn.classList.contains('edit-btn-plus');
-  const endpoint = isPlus ? `/match/${matchId}/stat` : `/match/${matchId}/stat/remove`;
-
-  btn.disabled = true;
-
-  try {
-    const res  = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ player_id: playerId, stat_type: statType }),
-    });
-    const data = await res.json();
-    if (!data.ok) { showToast(data.message || 'Nothing to remove'); return; }
-
-    applyPlayerUpdate(data);
-    updateUndoBar(data.my_last);
-    showToast(isPlus ? `+${escHtml(data.last_stat_label)} — ${escHtml(data.last_player_name)}` : 'Removed ✓');
-  } catch (err) {
-    showToast('Error — please retry', true);
-    console.error(err);
-  } finally {
-    // Always re-enable — updateStatButtons handles disabling minus when count hits 0
-    btn.disabled = false;
-  }
-});
+/* Edit mode −/+ buttons: handled in live.js */
 
 /* ── Accordion expand/collapse (mobile live match) ───────────────────────── */
 (function initAccordion() {
@@ -446,6 +298,26 @@ function closeAllModals() {
   document.getElementById('modal-overlay')?.classList.add('hidden');
 }
 
+/* ── Admin: data-attribute driven actions (no inline handlers carrying user text) ── */
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  const d = el.dataset;
+  switch (d.action) {
+    case 'edit-category': openEditCategory(d.id, d.name, d.sort); break;
+    case 'edit-player':   openEditPlayer(d.id, d.name, d.number, d.active === '1', d.categories); break;
+    case 'edit-season':   openEditSeason(d.id, d.name, d.category); break;
+    case 'edit-match':    openEditMatch(d.id, d.opponent, d.date, d.location, d.type, d.tournament); break;
+    case 'delete':        openDeleteConfirm(d.url, d.label); break;
+  }
+});
+
+// Confirmation prompt for forms carrying data-confirm="..."
+document.addEventListener('submit', e => {
+  const msg = e.target.dataset && e.target.dataset.confirm;
+  if (msg && !confirm(msg)) e.preventDefault();
+});
+
 function openAddCategory() {
   document.getElementById('form-category').action = '/admin/category/add' + _tabQ();
   document.getElementById('category-id').value = '';
@@ -569,7 +441,7 @@ async function submitDeleteConfirm() {
 
   btn.disabled = true;
   try {
-    const verifyRes = await fetch('/admin/verify-password', {
+    const verifyRes = await apiFetch('/admin/verify-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password: pw })
@@ -584,7 +456,7 @@ async function submitDeleteConfirm() {
     }
 
     // Password correct — submit the delete action
-    await fetch(_deleteConfirmUrl, { method: 'POST' });
+    await apiFetch(_deleteConfirmUrl, { method: 'POST' });
     // Redirect back preserving tab param from the delete URL
     const tabMatch = _deleteConfirmUrl.match(/[?&]tab=([^&]+)/);
     const tab = tabMatch ? tabMatch[1] : 'players';
@@ -629,7 +501,7 @@ async function submitRestore() {
   btn.disabled = true;
   errEl.classList.add('hidden');
   try {
-    const res = await fetch('/admin/backup/restore', {
+    const res = await apiFetch('/admin/backup/restore', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/octet-stream',
