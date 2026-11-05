@@ -26,12 +26,12 @@ const translations = {
     invalid_password:     'Invalid password. Try again.',
 
     // Nav
-    nav_dashboard:        'Dashboard',
+    nav_dashboard:        'Record',
     nav_players:          'Players',
     nav_admin:            'Admin',
 
     // Dashboard
-    dashboard:            'Dashboard',
+    dashboard:            'Record',
     no_seasons:           'No seasons yet. Go to Admin to create one.',
     live:                 'Live',
     view:                 'View',
@@ -169,7 +169,7 @@ const translations = {
     summary_title:        'Summary',
     share:                'Share',
     back_to_match:        '← Back to Match',
-    back_to_dashboard:    '← Dashboard',
+    back_to_dashboard:    '← Record',
     export_csv:           'Export CSV',
     matches_count_one:    'match',
     matches_count_other:  'matches',
@@ -303,12 +303,12 @@ const translations = {
     invalid_password:     'Nesprávne heslo. Skúste znova.',
 
     // Nav
-    nav_dashboard:        'Prehľad',
+    nav_dashboard:        'Zapisovať',
     nav_players:          'Hráči',
     nav_admin:            'Admin',
 
     // Dashboard
-    dashboard:            'Prehľad',
+    dashboard:            'Zapisovať',
     no_seasons:           'Zatiaľ žiadne sezóny. Prejdite do Adminu a vytvorte ju.',
     live:                 'Live',
     view:                 'Zobraziť',
@@ -446,7 +446,7 @@ const translations = {
     summary_title:        'Súhrn',
     share:                'Zdieľať',
     back_to_match:        '← Späť na zápas',
-    back_to_dashboard:    '← Prehľad',
+    back_to_dashboard:    '← Zapisovať',
     export_csv:           'Exportovať CSV',
     matches_count_one:    'zápas',
     matches_count_other:  'zápasov',
