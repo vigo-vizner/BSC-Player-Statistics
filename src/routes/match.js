@@ -77,7 +77,16 @@ router.get('/:id', (req, res) => {
   const seasonId     = match.season_id;
   const seasonPtsMap = db.getSeasonPtsByPlayer(seasonId);
 
-  const headerCols = STAT_TYPES.map(st => `<th class="stat-col${statClass(st)}">${t(STAT_KEYS[st])}</th>`).join('');
+  // Hover (desktop) shows the explanation; the glossary below the table covers touch screens
+  const headerCols = STAT_TYPES.map(st => `<th class="stat-col${statClass(st)}" title="${esc(t('stat_help_' + st))}">${t(STAT_KEYS[st])}</th>`).join('');
+
+  const statHelp = `
+  <details class="roster-box stat-help">
+    <summary>❓ ${t('stat_help_title')}</summary>
+    <dl class="stat-help-list">
+      ${STAT_TYPES.map(st => `<dt${isMiss(st) ? ' class="is-miss"' : ''}>${t(STAT_KEYS[st])}</dt><dd>${t('stat_help_' + st)}</dd>`).join('')}
+    </dl>
+  </details>`;
 
   const playerRows = players.map(p => {
     const statCells = STAT_TYPES.map(st => {
@@ -241,6 +250,8 @@ router.get('/:id', (req, res) => {
       <tbody id="live-tbody">${playerRows}</tbody>
     </table>
   </div>
+
+  ${statHelp}
 
   <div id="toast" class="toast hidden"></div>
   ${!isClosed

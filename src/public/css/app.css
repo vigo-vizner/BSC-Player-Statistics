@@ -476,6 +476,14 @@ body.login-page {
 .roster-item--locked { opacity: .65; cursor: default; }
 .roster-box .btn { align-self: flex-start; }
 
+/* ── Stat glossary (match page) ──────────────────────────────────────────── */
+.stat-help { margin-top: .75rem; }
+.stat-help-list { display: grid; grid-template-columns: max-content 1fr; gap: .35rem .9rem; margin-top: .6rem; font-size: .85rem; }
+.stat-help-list dt { font-family: 'Barlow Condensed', system-ui, sans-serif; font-weight: 700; color: var(--bsc-blue); text-transform: uppercase; letter-spacing: .03em; }
+.stat-help-list dt.is-miss { color: #9b2c2c; }
+.stat-help-list dd { color: var(--text); }
+.live-table th.stat-col { cursor: help; text-decoration: underline dotted rgba(226,232,240,.6); text-underline-offset: 3px; }
+
 /* ── Player stat cards (players page) ────────────────────────────────────── */
 .player-hero {
   display: flex; align-items: baseline; gap: .75rem; flex-wrap: wrap;

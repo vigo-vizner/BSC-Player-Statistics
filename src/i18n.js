@@ -191,6 +191,22 @@ const translations = {
     stat_2pt_miss: '2PT✗',
     stat_3pt_miss: '3PT✗',
 
+    // Stat explanations (hover on the match table header; glossary on the Record match page)
+    stat_help_title:    'What do the abbreviations mean?',
+    stat_help_1pt:      'Free throw made (1 point)',
+    stat_help_2pt:      'Two-point shot made, from inside the 3-point line (2 points)',
+    stat_help_3pt:      'Three-point shot made, from behind the 3-point line (3 points)',
+    stat_help_1pt_miss: 'Free throw missed',
+    stat_help_2pt_miss: 'Two-point shot missed',
+    stat_help_3pt_miss: 'Three-point shot missed',
+    stat_help_oreb:     'Offensive rebound – grabbing the ball after a teammate\'s missed shot',
+    stat_help_dreb:     'Defensive rebound – grabbing the ball after an opponent\'s missed shot',
+    stat_help_ast:      'Assist – a pass that directly leads to a basket',
+    stat_help_to:       'Turnover – losing the ball to the other team',
+    stat_help_blk:      'Block – stopping an opponent\'s shot',
+    stat_help_stl:      'Steal – taking the ball away from an opponent',
+    stat_help_pf:       'Personal foul – a rule violation involving contact',
+
     // Match roster
     roster:            'Who is playing',
     roster_hint:       'Untick players who are not at this match. Players who already have a stat stay on the list.',
@@ -468,6 +484,22 @@ const translations = {
     stat_1pt_miss: '1B✗',
     stat_2pt_miss: '2B✗',
     stat_3pt_miss: '3B✗',
+
+    // Vysvetlenie štatistík (nápoveda pri hlavičke tabuľky; slovník na stránke Zapisovať zápas)
+    stat_help_title:    'Čo znamenajú skratky?',
+    stat_help_1pt:      'Trafený trestný hod (1 bod)',
+    stat_help_2pt:      'Trafený kôš z hry zvnútra trojkovej čiary (2 body)',
+    stat_help_3pt:      'Trafená trojka spoza trojkovej čiary (3 body)',
+    stat_help_1pt_miss: 'Netrafený trestný hod',
+    stat_help_2pt_miss: 'Netrafený kôš z hry zvnútra trojkovej čiary',
+    stat_help_3pt_miss: 'Netrafená trojka',
+    stat_help_oreb:     'Útočný doskok – získanie lopty po netrafenom hode spoluhráča',
+    stat_help_dreb:     'Obranný doskok – získanie lopty po netrafenom hode súpera',
+    stat_help_ast:      'Asistencia – prihrávka, po ktorej spoluhráč hneď skóroval',
+    stat_help_to:       'Strata – strata lopty v prospech súpera',
+    stat_help_blk:      'Blok – zastavenie hodu súpera',
+    stat_help_stl:      'Krádež – zobratie lopty súperovi',
+    stat_help_pf:       'Osobná chyba – porušenie pravidiel s kontaktom',
 
     // Match roster
     roster:            'Kto hrá',
