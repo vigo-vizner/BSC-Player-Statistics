@@ -38,6 +38,13 @@ function shooting(c) {
 const pct = (m, a) => (a > 0 ? Math.round((m * 100) / a) : null);
 
 /**
+ * True when this player's parent recorded at least one missed shot in the given counts.
+ * Only then is his shooting percentage meaningful - a player with made shots only
+ * (misses simply not tracked) would otherwise show a false 100%.
+ */
+const shotsTracked = (c) => SHOT_MISS.some(st => (c[st] || 0) > 0);
+
+/**
  * Which players took part in which match, with their stat counts.
  *  - matches:    [{ id, match_date, ... }]
  *  - grouped:    [{ match_id, player_id, stat_type, c }]   (stats grouped + counted)
@@ -45,18 +52,15 @@ const pct = (m, a) => (a > 0 ? Math.round((m * 100) / a) : null);
  * A player "played" a match if he is on its roster, or - when the match has no roster
  * (older matches) - if any stat was recorded for him. Anyone with a stat has played.
  * Returns Map<playerId, [{ match, counts, tracked }]> in chronological order.
- * `tracked` = misses were recorded in that match, so its shooting percentages are meaningful
- * (matches from before miss tracking only know the made shots and would show a false 100%).
+ * `tracked` is decided per player: true only if misses were recorded for THAT player in THAT match.
  */
 function buildPlayerGames({ matches, grouped, rosterRows }) {
   const statsBy = {};
-  const trackedBy = {};
   grouped.forEach(r => {
     if (!STAT_TYPES.includes(r.stat_type)) return;
     const m = statsBy[r.match_id] || (statsBy[r.match_id] = {});
     const c = m[r.player_id] || (m[r.player_id] = emptyCounts());
     c[r.stat_type] += r.c;
-    if (SHOT_MISS.includes(r.stat_type)) trackedBy[r.match_id] = true;
   });
   const rosterBy = {};
   rosterRows.forEach(r => { (rosterBy[r.match_id] || (rosterBy[r.match_id] = new Set())).add(r.player_id); });
@@ -69,7 +73,8 @@ function buildPlayerGames({ matches, grouped, rosterRows }) {
     (rosterBy[match.id] || []).forEach(id => ids.add(id));
     ids.forEach(pid => {
       if (!out.has(pid)) out.set(pid, []);
-      out.get(pid).push({ match, counts: withStats[pid] || emptyCounts(), tracked: !!trackedBy[match.id] });
+      const counts = withStats[pid] || emptyCounts();
+      out.get(pid).push({ match, counts, tracked: shotsTracked(counts) });
     });
   });
   return out;
@@ -77,7 +82,8 @@ function buildPlayerGames({ matches, grouped, rosterRows }) {
 
 /**
  * Totals, per-game averages and shooting splits for a list of games.
- * Shooting only counts games where misses were tracked; `shootGp` says how many that is (0 = no data).
+ * Shooting only counts the player's games where misses were tracked for him; `shootGp` says how many
+ * that is (0 = no data, shown as a dash).
  */
 function summarize(games) {
   const totals = emptyCounts();
@@ -108,5 +114,5 @@ const avgText = (n) => (Math.round(n * 10) / 10).toFixed(1);
 
 module.exports = {
   STAT_TYPES, STAT_KEYS, SHOT_MADE, SHOT_MISS, OTHER_STATS,
-  emptyCounts, buildStatMap, pointsOf, reboundsOf, shooting, pct, splitText, pctText, avgText, buildPlayerGames, summarize,
+  emptyCounts, buildStatMap, pointsOf, reboundsOf, shooting, pct, shotsTracked, splitText, pctText, avgText, buildPlayerGames, summarize,
 };

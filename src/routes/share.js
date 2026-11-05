@@ -3,7 +3,7 @@ const router    = express.Router();
 const db        = require('../db');
 const { getT, DEFAULT_LANG } = require('../i18n');
 const { esc } = require('../util');
-const { buildStatMap, pointsOf, reboundsOf, shooting, splitText } = require('../stats');
+const { buildStatMap, pointsOf, reboundsOf, shooting, shotsTracked, splitText } = require('../stats');
 
 const totalPoints = pointsOf;
 const totalReb    = reboundsOf;
@@ -26,7 +26,8 @@ router.get('/match/:token', (req, res) => {
   const players  = db.getMatchPlayers(match);   // the match roster, else its whole category
   const stats    = db.getStatsByMatch(match.id);
   const statMap  = buildStatMap(stats, players);
-  const tracked  = stats.some(s => s.stat_type.endsWith('_miss')); // misses recorded -> FG is meaningful
+  // FG column appears when at least one player has misses recorded; each player's own cell shows a dash otherwise
+  const tracked  = players.some(p => shotsTracked(statMap[p.id] || {}));
 
   const scoreBsc = match.score_bsc || 0;
   const scoreOpp = match.score_opponent || 0;
@@ -48,7 +49,7 @@ router.get('/match/:token', (req, res) => {
       <td class="sh-stat"><strong>${pts}</strong><span class="sh-lbl">pts</span></td>
       <td class="sh-stat">${reb}<span class="sh-lbl">reb</span></td>
       <td class="sh-stat">${ast}<span class="sh-lbl">ast</span></td>
-      ${tracked ? `<td class="sh-stat">${splitText(fg)}<span class="sh-lbl">fg</span></td>` : ''}
+      ${tracked ? `<td class="sh-stat">${shotsTracked(m) ? splitText(fg) : '—'}<span class="sh-lbl">fg</span></td>` : ''}
     </tr>`;
   }).join('');
 
@@ -60,7 +61,7 @@ router.get('/match/:token', (req, res) => {
     const reb = totalReb(m);
     const ast = totalAst(m);
     const fg  = shooting(m).fg;
-    return `${p.name}: ${pts}pts ${reb}reb${ast > 0 ? ` ${ast}ast` : ''}${tracked && fg.a > 0 ? ` ${splitText(fg)}fg` : ''}`;
+    return `${p.name}: ${pts}pts ${reb}reb${ast > 0 ? ` ${ast}ast` : ''}${shotsTracked(m) && fg.a > 0 ? ` ${splitText(fg)}fg` : ''}`;
   }).join('\n');
   const shareText = `${header}\n${lines}\n#BSCBratislava`;
 
@@ -150,6 +151,7 @@ router.get('/match/:token', (req, res) => {
     .sh-copy-btn.copied { background: #dcfce7; color: #15803d; }
 
     /* Footer */
+    .sh-note { font-size: .72rem; color: var(--muted); margin: -.6rem 0 1rem; line-height: 1.4; }
     .sh-footer { text-align: center; font-size: .72rem; color: var(--muted); margin-top: 2rem; border-top: 1px solid var(--border); padding-top: .75rem; }
   </style>
   <link rel="stylesheet" href="/fonts/fonts.css">
@@ -187,6 +189,8 @@ router.get('/match/:token', (req, res) => {
       <tbody>${playerRows}</tbody>
     </table>
   </div>
+
+  ${tracked ? `<p class="sh-note">${t('shooting_note')}</p>` : ''}
 
   <button class="sh-copy-btn" id="copy-btn" onclick="copyShare()">${t('sh_copy')}</button>
 

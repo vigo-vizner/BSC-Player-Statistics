@@ -5,18 +5,19 @@ const { layout } = require('../views/layout');
 const { esc, toCsv } = require('../util');
 const { averagesTable, totalsTable } = require('../views/playerTables');
 const {
-  STAT_TYPES, STAT_KEYS, buildStatMap, pointsOf, shooting, splitText, avgText,
+  STAT_TYPES, STAT_KEYS, buildStatMap, pointsOf, shooting, shotsTracked, splitText, avgText,
   buildPlayerGames, summarize,
 } = require('../stats');
 
-/** Made/attempted columns shown next to the counts. Only meaningful if misses were recorded. */
+/** Made/attempted columns shown next to the counts. Only shown for a player whose misses were recorded. */
 const SPLIT_COLS = [['fg', 'FG'], ['p3', '3P'], ['ft', 'FT']];
 
-function buildSummaryTable(statMap, players, t, tracked) {
+function buildSummaryTable(statMap, players, t) {
   const rows = players.map(p => {
     const m = statMap[p.id] || {};
     if (STAT_TYPES.every(st => !m[st])) return null;
     const sh = shooting(m);
+    const tracked = shotsTracked(m); // per player: a parent who only logged made shots gets a dash, not a false 100%
     const cells = STAT_TYPES.map(st => `<td>${m[st] || 0}</td>`).join('');
     const splits = SPLIT_COLS.map(([k], i) => `<td${i === 0 ? ' class="col-sep"' : ''}>${tracked ? splitText(sh[k]) : '—'}</td>`).join('');
     return `<tr><td>#${esc(p.number)} ${esc(p.name)}</td><td><strong>${pointsOf(m)}</strong></td>${cells}${splits}</tr>`;
@@ -30,8 +31,6 @@ function buildSummaryTable(statMap, players, t, tracked) {
   </table></div>`;
 }
 
-const hasMisses = (stats) => stats.some(s => s.stat_type.endsWith('_miss'));
-
 // ── GET /match/:id/summary ────────────────────────────────────────────────────
 router.get('/match/:id/summary', (req, res) => {
   const t    = req.t;
@@ -42,7 +41,7 @@ router.get('/match/:id/summary', (req, res) => {
   const players = db.getPlayers();
   const stats   = db.getStatsByMatch(match.id);
   const statMap = buildStatMap(stats, players);
-  const table   = buildSummaryTable(statMap, players, t, hasMisses(stats));
+  const table   = buildSummaryTable(statMap, players, t);
 
   const closedBadge = match.status === 'closed'
     ? `<span class="badge badge-red">🔒 ${t('closed')}</span>`
@@ -77,15 +76,13 @@ router.get('/match/:id/export.csv', (req, res) => {
   const players = db.getPlayers();
   const stats   = db.getStatsByMatch(match.id);
   const statMap = buildStatMap(stats, players);
-  const tracked = hasMisses(stats);
-
   const headers = [t('player'), t('jersey'), t('pts'), ...STAT_TYPES.map(st => t(STAT_KEYS[st])), 'FGM', 'FGA', '3PM', '3PA', 'FTM', 'FTA'];
   const rows = players
     .filter(p => STAT_TYPES.some(st => (statMap[p.id]||{})[st]))
     .map(p => {
       const m  = statMap[p.id] || {};
       const sh = shooting(m);
-      const sp = tracked ? [sh.fg.m, sh.fg.a, sh.p3.m, sh.p3.a, sh.ft.m, sh.ft.a] : ['', '', '', '', '', ''];
+      const sp = shotsTracked(m) ? [sh.fg.m, sh.fg.a, sh.p3.m, sh.p3.a, sh.ft.m, sh.ft.a] : ['', '', '', '', '', ''];
       return [p.name, p.number, pointsOf(m), ...STAT_TYPES.map(st => m[st]||0), ...sp];
     });
 

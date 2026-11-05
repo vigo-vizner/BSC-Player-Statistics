@@ -159,9 +159,9 @@ router.get('/', (req, res) => {
 
   <!-- ── Tab bar ── -->
   <div class="admin-tabs" id="admin-tabs" data-active="${tab}">
+    <button class="admin-tab${tab === 'categories' ? ' active' : ''}" data-tab="categories">${t('categories')}</button>
     <button class="admin-tab${tab === 'players'    ? ' active' : ''}" data-tab="players">${t('players')}</button>
     <button class="admin-tab${tab === 'seasons'    ? ' active' : ''}" data-tab="seasons">${t('seasons_matches')}</button>
-    <button class="admin-tab${tab === 'categories' ? ' active' : ''}" data-tab="categories">${t('categories')}</button>
     <button class="admin-tab${tab === 'backup'     ? ' active' : ''}" data-tab="backup">${t('backup')}</button>
   </div>
 
