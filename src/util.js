@@ -10,6 +10,10 @@ function esc(str) {
     .replace(/'/g, '&#39;');
 }
 
+/** Table header cell; `tip` becomes the hover description (title attribute). `label` is trusted HTML. */
+const th = (label, tip, cls = '') =>
+  `<th${cls ? ` class="${cls}"` : ''}${tip ? ` title="${esc(tip)}"` : ''}>${label}</th>`;
+
 /** One CSV field: quotes when needed and neutralises spreadsheet formula injection in text. */
 function csvCell(v) {
   let s = String(v ?? '');
@@ -22,4 +26,4 @@ function toCsv(rows) {
   return '\uFEFF' + rows.map(r => r.map(csvCell).join(',')).join('\r\n');
 }
 
-module.exports = { esc, csvCell, toCsv };
+module.exports = { esc, th, csvCell, toCsv };

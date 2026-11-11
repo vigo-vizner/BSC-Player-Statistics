@@ -2,31 +2,30 @@ const express  = require('express');
 const router   = express.Router();
 const db       = require('../db');
 const { layout } = require('../views/layout');
-const { esc, toCsv } = require('../util');
-const { averagesTable, totalsTable } = require('../views/playerTables');
+const { esc, th, toCsv } = require('../util');
+const { averagesTable, totalsTable, legend, avgLegendItems, statLegendItems, splitLegendItems } = require('../views/playerTables');
 const {
-  STAT_TYPES, STAT_KEYS, buildStatMap, pointsOf, shooting, shotsTracked, splitText, avgText,
+  STAT_TYPES, STAT_KEYS, buildStatMap, pointsOf, shooting, splitText, avgText,
   buildPlayerGames, summarize,
 } = require('../stats');
 
-/** Made/attempted columns shown next to the counts. Only shown for a player whose misses were recorded. */
-const SPLIT_COLS = [['fg', 'FG'], ['p3', '3P'], ['ft', 'FT']];
+/** Made/attempted columns shown next to the counts. */
+const SPLIT_COLS = [['fg', 'FG', 'tip_fg'], ['p3', '3P', 'tip_3p'], ['ft', 'FT', 'tip_ft']];
 
 function buildSummaryTable(statMap, players, t) {
   const rows = players.map(p => {
     const m = statMap[p.id] || {};
     if (STAT_TYPES.every(st => !m[st])) return null;
     const sh = shooting(m);
-    const tracked = shotsTracked(m); // per player: a parent who only logged made shots gets a dash, not a false 100%
     const cells = STAT_TYPES.map(st => `<td>${m[st] || 0}</td>`).join('');
-    const splits = SPLIT_COLS.map(([k], i) => `<td${i === 0 ? ' class="col-sep"' : ''}>${tracked ? splitText(sh[k]) : '—'}</td>`).join('');
+    const splits = SPLIT_COLS.map(([k], i) => `<td${i === 0 ? ' class="col-sep"' : ''}>${splitText(sh[k])}</td>`).join('');
     return `<tr><td>#${esc(p.number)} ${esc(p.name)}</td><td><strong>${pointsOf(m)}</strong></td>${cells}${splits}</tr>`;
   }).filter(Boolean).join('') || `<tr><td colspan="${2 + STAT_TYPES.length + SPLIT_COLS.length}" class="empty">${t('no_data')}</td></tr>`;
 
-  const headers = STAT_TYPES.map(st => `<th>${t(STAT_KEYS[st])}</th>`).join('')
-    + SPLIT_COLS.map(([, label], i) => `<th${i === 0 ? ' class="col-sep"' : ''}>${label}</th>`).join('');
+  const headers = STAT_TYPES.map(st => th(t(STAT_KEYS[st]), t('stat_help_' + st))).join('')
+    + SPLIT_COLS.map(([, label, tip], i) => th(label, t(tip), i === 0 ? 'col-sep' : '')).join('');
   return `<div class="summary-wrap"><table class="data-table summary-table">
-    <thead><tr><th>${t('player')}</th><th>${t('pts')}</th>${headers}</tr></thead>
+    <thead><tr><th>${t('player')}</th>${th(t('pts'), t('tip_pts'))}${headers}</tr></thead>
     <tbody>${rows}</tbody>
   </table></div>`;
 }
@@ -62,6 +61,7 @@ router.get('/match/:id/summary', (req, res) => {
     <a href="/match/${match.id}/export.csv" class="btn btn-outline">${t('export_csv')}</a>
   </div>
   ${table}
+  ${legend(t, [[t('pts'), t('tip_pts')]], statLegendItems(t), splitLegendItems(t))}
   <p class="summary-note">${t('shooting_note')}</p>`;
 
   res.send(layout(`${t('summary_title')} ${t('vs')} ${match.opponent}`, body, { lang, t }));
@@ -82,7 +82,7 @@ router.get('/match/:id/export.csv', (req, res) => {
     .map(p => {
       const m  = statMap[p.id] || {};
       const sh = shooting(m);
-      const sp = shotsTracked(m) ? [sh.fg.m, sh.fg.a, sh.p3.m, sh.p3.a, sh.ft.m, sh.ft.a] : ['', '', '', '', '', ''];
+      const sp = [sh.fg.m, sh.fg.a, sh.p3.m, sh.p3.a, sh.ft.m, sh.ft.a];
       return [p.name, p.number, pointsOf(m), ...STAT_TYPES.map(st => m[st]||0), ...sp];
     });
 
@@ -178,6 +178,7 @@ router.get('/season/:id/summary', (req, res) => {
       ${block(matches)}
     </div>` : ''}
   ${sections}
+  ${legend(t, avgLegendItems(t), statLegendItems(t))}
   <p class="summary-note">${t('shooting_note')}</p>`;
 
   res.send(layout(`${t('season_summary_title')}: ${season.name}`, body, { activePage: 'dashboard', lang, t }));
@@ -195,7 +196,7 @@ router.get('/season/:id/export.csv', (req, res) => {
   const headers = [t('player'), t('jersey'), t('games_played'), t('pts'), t('avg_pts'), ...STAT_TYPES.map(st => t(STAT_KEYS[st])), 'FGM', 'FGA', '3PM', '3PA', 'FTM', 'FTA'];
   const data = rows.map(({ player, s }) => {
     const sh = s.shoot;
-    const sp = s.shootGp ? [sh.fg.m, sh.fg.a, sh.p3.m, sh.p3.a, sh.ft.m, sh.ft.a] : ['', '', '', '', '', ''];
+    const sp = [sh.fg.m, sh.fg.a, sh.p3.m, sh.p3.a, sh.ft.m, sh.ft.a];
     return [player.name, player.number, s.gp, s.pts, avgText(s.avg.pts), ...STAT_TYPES.map(st => s.totals[st] || 0), ...sp];
   });
 

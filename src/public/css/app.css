@@ -497,6 +497,8 @@ body.login-page {
 .stat-card-val { font-family: 'Barlow Condensed', system-ui, sans-serif; font-size: 1.7rem; font-weight: 800; color: var(--bsc-blue); line-height: 1.1; }
 .stat-card-lbl { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-weight: 600; }
 .stat-card-sub { font-size: .72rem; color: var(--muted); }
+th[title], .stat-card[title] { cursor: help; }
+
 
 
 

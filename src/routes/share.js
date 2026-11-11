@@ -3,8 +3,8 @@ const router    = express.Router();
 const db        = require('../db');
 const sse       = require('../sse');
 const { getT, DEFAULT_LANG } = require('../i18n');
-const { esc } = require('../util');
-const { buildStatMap, pointsOf, reboundsOf, shooting, shotsTracked, splitText } = require('../stats');
+const { esc, th } = require('../util');
+const { buildStatMap, pointsOf, reboundsOf, shooting, splitText } = require('../stats');
 
 const totalPoints = pointsOf;
 const totalReb    = reboundsOf;
@@ -28,9 +28,6 @@ function buildView(match, t) {
   const players  = db.getMatchPlayers(match);   // the match roster, else its whole category
   const stats    = db.getStatsByMatch(match.id);
   const statMap  = buildStatMap(stats, players);
-  // FG column appears when at least one player has misses recorded; each player's own cell shows a dash otherwise
-  const tracked  = players.some(p => shotsTracked(statMap[p.id] || {}));
-
   const scoreBsc = match.score_bsc || 0;
   const scoreOpp = match.score_opponent || 0;
   const hasScore = scoreBsc > 0 || scoreOpp > 0;
@@ -51,7 +48,7 @@ function buildView(match, t) {
       <td class="sh-stat"><strong>${pts}</strong><span class="sh-lbl">pts</span></td>
       <td class="sh-stat">${reb}<span class="sh-lbl">reb</span></td>
       <td class="sh-stat">${ast}<span class="sh-lbl">ast</span></td>
-      ${tracked ? `<td class="sh-stat">${shotsTracked(m) ? splitText(fg) : '—'}<span class="sh-lbl">fg</span></td>` : ''}
+      <td class="sh-stat">${splitText(fg)}<span class="sh-lbl">fg</span></td>
     </tr>`;
   }).join('');
 
@@ -63,7 +60,7 @@ function buildView(match, t) {
     const reb = totalReb(m);
     const ast = totalAst(m);
     const fg  = shooting(m).fg;
-    return `${p.name}: ${pts}pts ${reb}reb${ast > 0 ? ` ${ast}ast` : ''}${shotsTracked(m) && fg.a > 0 ? ` ${splitText(fg)}fg` : ''}`;
+    return `${p.name}: ${pts}pts ${reb}reb${ast > 0 ? ` ${ast}ast` : ''}${fg.a > 0 ? ` ${splitText(fg)}fg` : ''}`;
   }).join('\n');
   const shareText = `${header}\n${lines}\n#BSCBratislava`;
 
@@ -87,11 +84,11 @@ function buildView(match, t) {
   </div>` : '';
 
   const tableHtml = `<table>
-      <thead><tr><th>${t('sh_player')}</th><th>${t('sh_pts')}</th><th>${t('sh_reb')}</th><th>${t('sh_ast')}</th>${tracked ? `<th>${t('sh_fg')}</th>` : ''}</tr></thead>
+      <thead><tr><th>${t('sh_player')}</th>${th(t('sh_pts'), t('tip_pts'))}${th(t('sh_reb'), t('tip_reb'))}${th(t('sh_ast'), t('stat_help_ast'))}${th(t('sh_fg'), t('tip_fg'))}</tr></thead>
       <tbody>${playerRows}</tbody>
     </table>`;
 
-  const noteHtml = tracked ? `<p class="sh-note">${t('shooting_note')}</p>` : '';
+  const noteHtml = `<p class="sh-note">${t('shooting_note')}</p>`;
 
   return { hasScore, scoreStr, shareText, statusHtml, scoreHtml, tableHtml, noteHtml };
 }
@@ -231,6 +228,10 @@ router.get('/match/:token', (req, res) => {
     .sh-offline { font-size: .72rem; color: var(--muted); }
     .sh-offline[hidden] { display: none; }
     .sh-note { font-size: .72rem; color: var(--muted); margin: -.6rem 0 1rem; line-height: 1.4; }
+    .sh-legend { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: .6rem .8rem; margin-bottom: 1.25rem; }
+    .sh-legend summary { cursor: pointer; font-weight: 600; font-size: .85rem; color: var(--blue); }
+    .sh-legend dl { display: grid; grid-template-columns: max-content 1fr; gap: .35rem .9rem; margin-top: .6rem; font-size: .8rem; }
+    .sh-legend dt { font-family: "Barlow Condensed",system-ui,sans-serif; font-weight: 700; color: var(--blue); text-transform: uppercase; }
     .sh-footer { text-align: center; font-size: .72rem; color: var(--muted); margin-top: 2rem; border-top: 1px solid var(--border); padding-top: .75rem; }
   </style>
   <link rel="stylesheet" href="/fonts/fonts.css">
@@ -252,6 +253,16 @@ router.get('/match/:token', (req, res) => {
   <div class="sh-table-wrap" id="sh-table">${tableHtml}</div>
 
   <div id="sh-note">${noteHtml}</div>
+
+  <details class="sh-legend">
+    <summary>❓ ${t('stat_help_title')}</summary>
+    <dl>
+      <dt>${t('sh_pts')}</dt><dd>${esc(t('tip_pts'))}</dd>
+      <dt>${t('sh_reb')}</dt><dd>${esc(t('tip_reb'))}</dd>
+      <dt>${t('sh_ast')}</dt><dd>${esc(t('stat_help_ast'))}</dd>
+      <dt>${t('sh_fg')}</dt><dd>${esc(t('tip_fg'))}</dd>
+    </dl>
+  </details>
 
   <button class="sh-copy-btn" id="copy-btn" onclick="copyShare()">${t('sh_copy')}</button>
 

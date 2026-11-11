@@ -38,9 +38,9 @@ function shooting(c) {
 const pct = (m, a) => (a > 0 ? Math.round((m * 100) / a) : null);
 
 /**
- * True when this player's parent recorded at least one missed shot in the given counts.
- * Only then is his shooting percentage meaningful - a player with made shots only
- * (misses simply not tracked) would otherwise show a false 100%.
+ * True when at least one missed shot was recorded in the given counts.
+ * Only then is a shooting PERCENTAGE meaningful - made shots only (misses simply not tracked)
+ * would otherwise show a false 100%. Made/attempted counts are shown regardless.
  */
 const shotsTracked = (c) => SHOT_MISS.some(st => (c[st] || 0) > 0);
 
@@ -52,7 +52,7 @@ const shotsTracked = (c) => SHOT_MISS.some(st => (c[st] || 0) > 0);
  * A player "played" a match if he is on its roster, or - when the match has no roster
  * (older matches) - if any stat was recorded for him. Anyone with a stat has played.
  * Returns Map<playerId, [{ match, counts, tracked }]> in chronological order.
- * `tracked` is decided per player: true only if misses were recorded for THAT player in THAT match.
+ * `tracked` is true only if misses were recorded for THAT player in THAT match.
  */
 function buildPlayerGames({ matches, grouped, rosterRows }) {
   const statsBy = {};
@@ -81,17 +81,17 @@ function buildPlayerGames({ matches, grouped, rosterRows }) {
 }
 
 /**
- * Totals, per-game averages and shooting splits for a list of games.
- * Shooting only counts the player's games where misses were tracked for him; `shootGp` says how many
- * that is (0 = no data, shown as a dash).
+ * Totals, per-game averages and shooting numbers for a list of games.
+ *  - shoot:    made/attempted from ALL recorded shots (always shown)
+ *  - pctShoot: made/attempted from only the games where misses were tracked, used for percentages
+ *              (a zero-attempt split shows as a dash)
  */
 function summarize(games) {
   const totals = emptyCounts();
   const tracked = emptyCounts();
-  let shootGp = 0;
   games.forEach(g => {
     STAT_TYPES.forEach(st => { totals[st] += g.counts[st] || 0; });
-    if (g.tracked) { shootGp++; STAT_TYPES.forEach(st => { tracked[st] += g.counts[st] || 0; }); }
+    if (g.tracked) STAT_TYPES.forEach(st => { tracked[st] += g.counts[st] || 0; });
   });
   const gp = games.length;
   const pts = pointsOf(totals), reb = reboundsOf(totals);
@@ -100,8 +100,8 @@ function summarize(games) {
     gp, totals, pts, reb,
     avg: { pts: per(pts), reb: per(reb), ast: per(totals.ast), stl: per(totals.stl),
            blk: per(totals.blk), to: per(totals.to), pf: per(totals.pf) },
-    shoot: shooting(tracked),
-    shootGp,
+    shoot: shooting(totals),
+    pctShoot: shooting(tracked),
   };
 }
 

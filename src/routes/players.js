@@ -2,8 +2,8 @@ const express  = require('express');
 const router   = express.Router();
 const db       = require('../db');
 const { layout } = require('../views/layout');
-const { averagesTable } = require('../views/playerTables');
-const { esc } = require('../util');
+const { averagesTable, legend, avgLegendItems, statLegendItems, splitLegendItems } = require('../views/playerTables');
+const { esc, th } = require('../util');
 const { buildPlayerGames, summarize, pointsOf, reboundsOf, shooting, splitText, pctText, avgText } = require('../stats');
 
 /** Games of every player, limited to the given matches. Map<playerId, [{ match, counts, tracked }]> */
@@ -49,6 +49,7 @@ router.get('/', (req, res) => {
   </div>
   <div class="cat-tabs">${tabs}</div>
   ${averagesTable(rows, t)}
+  ${legend(t, avgLegendItems(t))}
   <p class="summary-note">${t('shooting_note')}</p>`;
 
   res.send(layout(t('players_title'), body, { activePage: 'players', lang: req.lang, t }));
@@ -74,27 +75,25 @@ router.get('/:id', (req, res) => {
         activeSeason, k => `/players/${player.id}?season=${k}`)}</div>`
     : '';
 
-  const card = (val, lbl, sub = '') =>
-    `<div class="stat-card"><div class="stat-card-val">${val}</div><div class="stat-card-lbl">${lbl}</div>${sub ? `<div class="stat-card-sub">${sub}</div>` : ''}</div>`;
+  const card = (val, lbl, sub = '', tip = '') =>
+    `<div class="stat-card"${tip ? ` title="${esc(tip)}"` : ''}><div class="stat-card-val">${val}</div><div class="stat-card-lbl">${lbl}</div>${sub ? `<div class="stat-card-sub">${sub}</div>` : ''}</div>`;
 
   const cards = games.length ? [
-    card(s.gp, t('games_played_full')),
-    card(avgText(s.avg.pts), t('avg_pts'), `${s.pts} ${t('pts')}`),
-    card(avgText(s.avg.reb), t('avg_reb'), `${s.reb}`),
-    card(avgText(s.avg.ast), t('avg_ast'), `${s.totals.ast}`),
-    card(avgText(s.avg.stl), t('avg_stl'), `${s.totals.stl}`),
-    card(avgText(s.avg.blk), t('avg_blk'), `${s.totals.blk}`),
-    card(avgText(s.avg.to),  t('avg_to'),  `${s.totals.to}`),
-    card(avgText(s.avg.pf),  t('avg_pf'),  `${s.totals.pf}`),
+    card(s.gp, t('games_played_full'), '', t('tip_gp')),
+    card(avgText(s.avg.pts), t('avg_pts'), `${s.pts} ${t('pts')}`, t('tip_avg_pts')),
+    card(avgText(s.avg.reb), t('avg_reb'), `${s.reb}`, t('tip_avg_reb')),
+    card(avgText(s.avg.ast), t('avg_ast'), `${s.totals.ast}`, t('tip_avg_ast')),
+    card(avgText(s.avg.stl), t('avg_stl'), `${s.totals.stl}`, t('tip_avg_stl')),
+    card(avgText(s.avg.blk), t('avg_blk'), `${s.totals.blk}`, t('tip_avg_blk')),
+    card(avgText(s.avg.to),  t('avg_to'),  `${s.totals.to}`,  t('tip_avg_to')),
+    card(avgText(s.avg.pf),  t('avg_pf'),  `${s.totals.pf}`,  t('tip_avg_pf')),
   ].join('') : '';
 
-  const shootCards = s.shootGp
-    ? [
-        card(pctText(s.shoot.fg), t('pct_fg'), splitText(s.shoot.fg)),
-        card(pctText(s.shoot.p3), t('pct_3p'), splitText(s.shoot.p3)),
-        card(pctText(s.shoot.ft), t('pct_ft'), splitText(s.shoot.ft)),
-      ].join('')
-    : '';
+  const shootCards = [
+    card(pctText(s.pctShoot.fg), t('pct_fg'), splitText(s.shoot.fg), t('tip_pct_fg')),
+    card(pctText(s.pctShoot.p3), t('pct_3p'), splitText(s.shoot.p3), t('tip_pct_3p')),
+    card(pctText(s.pctShoot.ft), t('pct_ft'), splitText(s.shoot.ft), t('tip_pct_ft')),
+  ].join('');
 
   // Newest game first
   const logRows = [...games].reverse().map(g => {
@@ -108,8 +107,12 @@ router.get('/:id', (req, res) => {
       <td class="col-sep">${split(sh.fg)}</td><td>${split(sh.p3)}</td><td>${split(sh.ft)}</td>
     </tr>`;
   }).join('');
+  const logTips = {
+    pts: 'tip_pts', sh_reb: 'tip_reb', sh_ast: 'stat_help_ast', stat_stl: 'stat_help_stl', stat_blk: 'stat_help_blk',
+    stat_to: 'stat_help_to', stat_pf: 'stat_help_pf', pct_fg: 'tip_fg', pct_3p: 'tip_3p', pct_ft: 'tip_ft',
+  };
   const logHead = ['date', 'opponent', 'pts', 'sh_reb', 'sh_ast', 'stat_stl', 'stat_blk', 'stat_to', 'stat_pf', 'pct_fg', 'pct_3p', 'pct_ft']
-    .map(k => `<th>${t(k)}</th>`).join('');
+    .map(k => th(t(k), logTips[k] && t(logTips[k]))).join('');
 
   const body = `
   <div class="page-header">
@@ -120,12 +123,12 @@ router.get('/:id', (req, res) => {
   ${games.length ? `
     <h2 class="summary-subtitle">${t('averages')}</h2>
     <div class="stat-cards">${cards}</div>
-    ${shootCards ? `<h2 class="summary-subtitle">${t('shooting')}</h2><div class="stat-cards">${shootCards}</div><p class="summary-note">${t('shooting_note')}</p>`
-                 : `<p class="summary-note">${t('no_shooting')}. ${t('shooting_note')}</p>`}
+    <h2 class="summary-subtitle">${t('shooting')}</h2><div class="stat-cards">${shootCards}</div><p class="summary-note">${t('shooting_note')}</p>
     <h2 class="summary-subtitle">${t('game_log')}</h2>
     <div class="summary-wrap"><table class="data-table summary-table">
       <thead><tr>${logHead}</tr></thead><tbody>${logRows}</tbody>
-    </table></div>`
+    </table></div>
+    ${legend(t, avgLegendItems(t), [[t('sh_reb'), t('tip_reb')], [t('sh_ast'), t('stat_help_ast')]], statLegendItems(t), splitLegendItems(t))}`
     : `<p class="empty-state">${t('no_games')}</p>`}`;
 
   res.send(layout(player.name, body, { activePage: 'players', lang: req.lang, t }));
